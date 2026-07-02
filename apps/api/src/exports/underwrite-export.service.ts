@@ -50,58 +50,69 @@ export class UnderwriteExportService {
     const rows: UnderwriteExportRow[] = [];
     const assumptions = (run.assumptionsJson as any) || {};
     const metricsObj = (run.metricsJson as any) || {};
-    const subMetrics = metricsObj.metrics || {};
     const currency = assumptions.currency || 'USD';
 
     // --- Acquisition ---------------------------------------------------------
     rows.push(
-      { section: 'Acquisition', label: 'Purchase Price', value: assumptions.purchasePrice || 0, format: 'currency', currency },
-      { section: 'Acquisition', label: 'Price per Unit', value: assumptions.purchasePrice || 0, format: 'currency', currency },
-      { section: 'Acquisition', label: 'Closing Costs', value: (metricsObj.totalAcquisitionCosts || assumptions.purchasePrice || 0) - (assumptions.purchasePrice || 0), format: 'currency', currency },
-      { section: 'Acquisition', label: 'Total Capitalization', value: metricsObj.totalCapitalRequired || assumptions.purchasePrice || 0, format: 'currency', currency },
+      { kind: 'input', section: 'Acquisition', label: 'Purchase Price', value: assumptions.purchasePrice || 0, format: 'currency', currency, refKey: 'purchasePrice' },
+      { kind: 'input', section: 'Acquisition', label: 'Unit Count', value: assumptions.unitCount || 1, format: 'number', refKey: 'unitCount' },
+      { kind: 'input', section: 'Acquisition', label: 'Closing Costs', value: (metricsObj.totalAcquisitionCosts || assumptions.purchasePrice || 0) - (assumptions.purchasePrice || 0), format: 'currency', currency, refKey: 'closingCosts' },
+      { kind: 'formula', section: 'Acquisition', label: 'Price per Unit', format: 'currency', formulaTemplate: '={purchasePrice}/{unitCount}', refKey: 'pricePerUnit' },
+      { kind: 'formula', section: 'Acquisition', label: 'Total Capitalization', format: 'currency', formulaTemplate: '={purchasePrice}+{closingCosts}', refKey: 'totalCapitalization' },
     );
 
     // --- Financing -------------------------------------------------------------
-    const loanAmount = (assumptions.purchasePrice || 0) - (subMetrics.equityInvested || 0);
     const ltv = assumptions.financing ? (1 - (assumptions.financing.downPaymentPct || 1.0)) : 0;
+    const interestRate = assumptions.financing?.interestRate || 0;
+    const termMonths = assumptions.financing?.termMonths || 360;
     rows.push(
-      { section: 'Financing', label: 'Loan Amount', value: loanAmount, format: 'currency', currency },
-      { section: 'Financing', label: 'LTV', value: ltv, format: 'percent' },
-      { section: 'Financing', label: 'Interest Rate', value: assumptions.financing?.interestRate || 0, format: 'percent' },
-      { section: 'Financing', label: 'Amortization (months)', value: assumptions.financing?.termMonths || 0, format: 'number' },
-      { section: 'Financing', label: 'Term (months)', value: assumptions.financing?.termMonths || 0, format: 'number' },
-      { section: 'Financing', label: 'DSCR', value: subMetrics.dscr || null, format: 'ratio' },
+      { kind: 'input', section: 'Financing', label: 'LTV', value: ltv, format: 'percent', refKey: 'ltv' },
+      { kind: 'input', section: 'Financing', label: 'Interest Rate', value: interestRate, format: 'percent', refKey: 'interestRate' },
+      { kind: 'input', section: 'Financing', label: 'Amortization (months)', value: termMonths, format: 'number', refKey: 'amortMonths' },
+      { kind: 'formula', section: 'Financing', label: 'Loan Amount', format: 'currency', formulaTemplate: '={purchasePrice}*{ltv}', refKey: 'loanAmount' },
+      { kind: 'formula', section: 'Financing', label: 'Monthly Debt Service', format: 'currency', formulaTemplate: '=-PMT({interestRate}/12,{amortMonths},{loanAmount})', refKey: 'monthlyDebtService' },
+      { kind: 'formula', section: 'Financing', label: 'Annual Debt Service', format: 'currency', formulaTemplate: '={monthlyDebtService}*12', refKey: 'annualDebtService' },
+      { kind: 'formula', section: 'Financing', label: 'DSCR', format: 'ratio', formulaTemplate: '={netOperatingIncome}/{annualDebtService}', refKey: 'dscr' },
     );
 
     // --- Income ------------------------------------------------------------------
     const grossIncome = assumptions.grossRentalIncomeAnnual || 0;
+    const vacancyRate = metricsObj.vacancyRate || 0.05;
+    const utilityChargeback = metricsObj.utilityChargebackIncome || 0;
+    const otherIncome = metricsObj.otherIncome || 0;
     rows.push(
-      { section: 'Income', label: 'Gross Potential Rent (Annual)', value: grossIncome, format: 'currency', currency },
-      { section: 'Income', label: 'Vacancy Loss', value: metricsObj.vacancyLoss || 0, format: 'currency', currency },
-      { section: 'Income', label: 'Loss to Lease', value: metricsObj.lossToLease || 0, format: 'currency', currency },
-      { section: 'Income', label: 'Utility Chargeback Income', value: metricsObj.utilityChargebackIncome || 0, format: 'currency', currency },
-      { section: 'Income', label: 'Other Income', value: metricsObj.otherIncome || 0, format: 'currency', currency },
-      { section: 'Income', label: 'Effective Gross Income', value: metricsObj.effectiveGrossIncome || grossIncome, format: 'currency', currency },
+      { kind: 'input', section: 'Income', label: 'Gross Potential Rent (Annual)', value: grossIncome, format: 'currency', currency, refKey: 'grossPotentialRent' },
+      { kind: 'input', section: 'Income', label: 'Vacancy Rate', value: vacancyRate, format: 'percent', refKey: 'vacancyRate' },
+      { kind: 'input', section: 'Income', label: 'Utility Chargeback Income', value: utilityChargeback, format: 'currency', currency, refKey: 'utilityChargebackIncome' },
+      { kind: 'input', section: 'Income', label: 'Other Income', value: otherIncome, format: 'currency', currency, refKey: 'otherIncome' },
+      { kind: 'formula', section: 'Income', label: 'Vacancy Loss', format: 'currency', formulaTemplate: '=-({grossPotentialRent}*{vacancyRate})', refKey: 'vacancyLoss' },
+      { kind: 'formula', section: 'Income', label: 'Effective Gross Income', format: 'currency', formulaTemplate: '={grossPotentialRent}+{vacancyLoss}+{utilityChargebackIncome}+{otherIncome}', refKey: 'effectiveGrossIncome' },
     );
 
     // --- Expenses -------------------------------------------------------------
+    const propTaxes = metricsObj.propertyTaxes || 0;
+    const insurance = metricsObj.insurance || 0;
+    const serviceCharges = assumptions.serviceChargeValue || 0;
+    const repairsMaint = metricsObj.repairsMaintenance || 0;
+    const managementFeePct = metricsObj.managementFeePct || 0.04;
+    const replacementReserves = metricsObj.replacementReserves || 0;
     rows.push(
-      { section: 'Expenses', label: 'Property Taxes', value: metricsObj.propertyTaxes || 0, format: 'currency', currency },
-      { section: 'Expenses', label: 'Insurance', value: metricsObj.insurance || 0, format: 'currency', currency },
-      { section: 'Expenses', label: 'Service Charges / CAM', value: assumptions.serviceChargeValue || 0, format: 'currency', currency },
-      { section: 'Expenses', label: 'Repairs & Maintenance', value: metricsObj.repairsMaintenance || 0, format: 'currency', currency },
-      { section: 'Expenses', label: 'Management Fee', value: metricsObj.managementFee || 0, format: 'currency', currency },
-      { section: 'Expenses', label: 'Replacement Reserves', value: metricsObj.replacementReserves || 0, format: 'currency', currency },
-      { section: 'Expenses', label: 'Total Operating Expenses', value: metricsObj.totalOperatingExpenses || 0, format: 'currency', currency },
+      { kind: 'input', section: 'Expenses', label: 'Property Taxes', value: propTaxes, format: 'currency', currency, refKey: 'propertyTaxes' },
+      { kind: 'input', section: 'Expenses', label: 'Insurance', value: insurance, format: 'currency', currency, refKey: 'insurance' },
+      { kind: 'input', section: 'Expenses', label: 'Service Charges / CAM', value: serviceCharges, format: 'currency', currency, refKey: 'serviceCharges' },
+      { kind: 'input', section: 'Expenses', label: 'Repairs & Maintenance', value: repairsMaint, format: 'currency', currency, refKey: 'repairsMaintenance' },
+      { kind: 'input', section: 'Expenses', label: 'Management Fee %', value: managementFeePct, format: 'percent', refKey: 'managementFeePct' },
+      { kind: 'input', section: 'Expenses', label: 'Replacement Reserves', value: replacementReserves, format: 'currency', currency, refKey: 'replacementReserves' },
+      { kind: 'formula', section: 'Expenses', label: 'Management Fee', format: 'currency', formulaTemplate: '={effectiveGrossIncome}*{managementFeePct}', refKey: 'managementFee' },
+      { kind: 'formula', section: 'Expenses', label: 'Total Operating Expenses', format: 'currency', formulaTemplate: '={propertyTaxes}+{insurance}+{serviceCharges}+{repairsMaintenance}+{managementFee}+{replacementReserves}', refKey: 'totalOperatingExpenses' },
     );
 
     // --- Returns --------------------------------------------------------------
     rows.push(
-      { section: 'Returns', label: 'Net Operating Income', value: subMetrics.netOperatingIncome || 0, format: 'currency', currency },
-      { section: 'Returns', label: 'Gross Yield', value: subMetrics.grossYield || 0, format: 'percent' },
-      { section: 'Returns', label: 'Net Yield / Cap Rate', value: subMetrics.netYield || subMetrics.capRate || 0, format: 'percent' },
-      { section: 'Returns', label: 'Cash-on-Cash Return (Yr 1)', value: subMetrics.cashOnCashYield || 0, format: 'percent' },
-      { section: 'Returns', label: 'Projected 5-Yr IRR', value: subMetrics.projectedIrr5yr || subMetrics.cashOnCashYield || 0, format: 'percent' },
+      { kind: 'formula', section: 'Returns', label: 'Net Operating Income', format: 'currency', formulaTemplate: '={effectiveGrossIncome}-{totalOperatingExpenses}', refKey: 'netOperatingIncome' },
+      { kind: 'formula', section: 'Returns', label: 'Net Rental Yield', format: 'percent', formulaTemplate: '={netOperatingIncome}/{purchasePrice}', refKey: 'netRentalYield', notes: 'NOI / Purchase Price' },
+      { kind: 'formula', section: 'Returns', label: 'Gross Yield', format: 'percent', formulaTemplate: '={grossPotentialRent}/{purchasePrice}', refKey: 'grossYield' },
+      { kind: 'formula', section: 'Returns', label: 'Cash-on-Cash Yield', format: 'percent', formulaTemplate: '=({netOperatingIncome}-{annualDebtService})/({purchasePrice}-{loanAmount}+{closingCosts})', refKey: 'cashOnCashYield', notes: '(NOI - Annual Debt Service) / Total Cash Invested' },
     );
 
     return rows;

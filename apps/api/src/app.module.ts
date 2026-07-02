@@ -18,6 +18,7 @@ import { DailyBriefModule } from './daily-brief/daily-brief.module';
 import { CopilotModule } from './copilot/copilot.module';
 import { AgentModule } from './agent/agent.module';
 import { BullModule } from '@nestjs/bullmq';
+import { UnderwriteExportModule } from './exports/underwrite-export.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { BullModule } from '@nestjs/bullmq';
     DailyBriefModule,
     CopilotModule,
     AgentModule,
+    UnderwriteExportModule,
   ],
   controllers: [AppController],
   providers: [AppService],

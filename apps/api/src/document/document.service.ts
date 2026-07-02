@@ -70,6 +70,25 @@ export class DocumentService {
     return doc;
   }
 
+  async getDocumentText(doc: any): Promise<string> {
+    const absolutePath = path.resolve(process.cwd(), doc.storagePath);
+    if (!fs.existsSync(absolutePath)) {
+      throw new Error(`File not found at storage path: ${doc.storagePath}`);
+    }
+
+    const dataBuffer = fs.readFileSync(absolutePath);
+    if (
+      doc.mimeType === 'application/pdf' ||
+      doc.fileName.toLowerCase().endsWith('.pdf')
+    ) {
+      const parser = new pdfParse.PDFParse(new Uint8Array(dataBuffer));
+      const parsed = await parser.getText();
+      return parsed.text;
+    } else {
+      return dataBuffer.toString('utf8');
+    }
+  }
+
   private async processDocumentBackground(
     documentId: string,
     workspaceId: string,
@@ -92,25 +111,8 @@ export class DocumentService {
       });
       if (!doc) return;
 
-      // Read file and run extraction
-      const absolutePath = path.resolve(process.cwd(), doc.storagePath);
-      if (!fs.existsSync(absolutePath)) {
-        throw new Error(`File not found at storage path: ${doc.storagePath}`);
-      }
-
-      const dataBuffer = fs.readFileSync(absolutePath);
-      let text = '';
-
-      if (
-        doc.mimeType === 'application/pdf' ||
-        doc.fileName.toLowerCase().endsWith('.pdf')
-      ) {
-        const parser = new pdfParse.PDFParse(new Uint8Array(dataBuffer));
-        const parsed = await parser.getText();
-        text = parsed.text;
-      } else {
-        text = dataBuffer.toString('utf8');
-      }
+      // Read file and run extraction using our helper
+      const text = await this.getDocumentText(doc);
 
       if (!text || !text.trim()) {
         throw new Error('Extracted text is empty or invalid.');

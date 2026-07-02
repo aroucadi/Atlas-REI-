@@ -104,6 +104,8 @@ model AuditLog {
   action         String
   beforeJson     Json?         @map("before_json")
   afterJson      Json?         @map("after_json")
+  previousHash   String?       @map("previous_hash")
+  entryHash      String?       @unique @map("entry_hash")
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   workspace      Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

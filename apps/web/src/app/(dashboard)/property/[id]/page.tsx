@@ -4,6 +4,7 @@ import React, { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { useTerminal } from "../../../../context/TerminalContext";
 import { api } from "../../../../lib/api";
+import { ExportUnderwriteButton } from "../../deals/_components/ExportUnderwriteButton";
 import {
   Calculator,
   ArrowRight,
@@ -341,7 +342,14 @@ export default function PropertyDetailPage({
             Property ID: {propertyId || "New Model"}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {underwriteRunId && (
+            <ExportUnderwriteButton
+              workspaceId={activeWorkspace.id}
+              underwriteRunId={underwriteRunId}
+              propertyName={result?.propertyName || "Property"}
+            />
+          )}
           <button
             onClick={runUnderwrite}
             disabled={loading}

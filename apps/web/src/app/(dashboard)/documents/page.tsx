@@ -5,6 +5,7 @@ import { useTerminal } from "../../../context/TerminalContext";
 import { api } from "../../../lib/api";
 import { FileText, Upload, AlertCircle } from "lucide-react";
 import NoDocuments from "../../../components/visuals/NoDocuments";
+import { ExtractRentRollButton } from "./_components/ExtractRentRollButton";
 
 export default function DocumentsPage() {
   const { activeWorkspace } = useTerminal();
@@ -241,6 +242,18 @@ export default function DocumentsPage() {
                   </span>
                 )}
               </div>
+
+              {activeWorkspace && selectedDoc.documentType === 'rent_roll' && selectedDoc.status === 'completed' && (
+                <div className="pb-4 border-b border-border-subtle/40">
+                  <ExtractRentRollButton
+                    workspaceId={activeWorkspace.id}
+                    document={selectedDoc}
+                    onExtractionSuccess={() => {
+                      loadDocuments();
+                    }}
+                  />
+                </div>
+              )}
 
               {selectedDoc.status === "failed" ? (
                 <div className="p-4 bg-danger/5 border border-danger/20 text-danger rounded-sm flex gap-3 items-start text-xs font-mono">

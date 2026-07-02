@@ -833,15 +833,17 @@ model Document {
 }
 
 model DocumentExtraction {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  documentId       String   @map("document_id") @db.Uuid
-  extractorVersion String   @map("extractor_version")
-  fieldsJson       Json     @default("{}") @map("fields_json")
-  confidenceJson   Json     @default("{}") @map("confidence_json")
-  missingItemsJson Json     @default("[]") @map("missing_items_json")
-  sourceSpansJson  Json     @default("[]") @map("source_spans_json")
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
-  document         Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId        String   @map("document_id") @db.Uuid
+  extractorVersion  String   @map("extractor_version")
+  fieldsJson        Json     @default("{}") @map("fields_json")
+  confidenceJson    Json     @default("{}") @map("confidence_json")
+  missingItemsJson  Json     @default("[]") @map("missing_items_json")
+  sourceSpansJson   Json     @default("[]") @map("source_spans_json")
+  status            String   @default("completed")
+  failureDetailJson Json?    @map("failure_detail_json")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  document          Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@map("document_extractions")
 }

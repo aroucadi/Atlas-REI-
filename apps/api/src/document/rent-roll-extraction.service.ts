@@ -22,6 +22,7 @@ export interface ExtractRentRollOptions {
 }
 
 const DEFAULT_EXTRACTOR_VERSION = 'rent-roll-extract-v1';
+const MIN_VIABLE_TEXT_LENGTH = 50;
 
 const RENT_ROLL_SYSTEM_PROMPT = `
 You are extracting structured data from a multifamily rent roll document.
@@ -94,15 +95,21 @@ export class RentRollExtractionService {
     // 3. Fetch the OCR'd / raw text content for the document.
     const documentText = await this.documentService.getDocumentText(document);
 
-    if (!documentText || documentText.trim().length === 0) {
+    // Hardened check 1: Empty or garbage OCR text
+    if (!documentText || documentText.trim().length < MIN_VIABLE_TEXT_LENGTH) {
+      await this.recordFailedExtraction(document, workspaceId, requestedByUserId, extractorVersion, {
+        reason: 'insufficient_ocr_text',
+        textLength: documentText?.trim().length ?? 0,
+      });
       throw new BadRequestException(
-        `Document ${documentId} has no extracted text available. Has OCR completed?`,
+        `Document ${documentId} has insufficient extracted text (` +
+          `${documentText?.trim().length ?? 0} characters). OCR may have failed, ` +
+          `or this may be a scanned document requiring re-processing. ` +
+          `Try re-uploading a higher-quality scan.`,
       );
     }
 
     // 4. Call the AI Gateway with the Zod schema as the structured-output contract.
-    let result: RentRollExtraction;
-
     const aiRun = await this.db.client.aiRun.create({
       data: {
         workspaceId,
@@ -115,9 +122,10 @@ export class RentRollExtractionService {
       },
     });
 
+    let rawResult: any;
     try {
       const prompt = `Extract rent roll details from file content:\n\n${documentText}`;
-      result = await this.aiGateway.generateStructuredJson<RentRollExtraction>(
+      rawResult = await this.aiGateway.generateStructuredJson<RentRollExtraction>(
         prompt,
         RentRollExtractionSchema,
         RENT_ROLL_SYSTEM_PROMPT,
@@ -131,10 +139,50 @@ export class RentRollExtractionService {
           outputRefJson: { error: (err as Error).message } as any,
         },
       });
+      await this.recordFailedExtraction(document, workspaceId, requestedByUserId, extractorVersion, {
+        reason: 'ai_gateway_error',
+        message: (err as Error).message,
+      });
       this.logger.error(
         `AI Gateway extraction failed for document ${documentId}: ${(err as Error).message}`,
       );
       throw new InternalServerErrorException('Rent roll extraction failed');
+    }
+
+    // Hardened check 2: Validate against Zod schema safely
+    const parsed = RentRollExtractionSchema.safeParse(rawResult);
+    if (!parsed.success) {
+      await this.db.client.aiRun.update({
+        where: { id: aiRun.id },
+        data: {
+          status: 'failed',
+          errorMessage: parsed.error.message,
+          outputRefJson: { error: 'schema_validation_failed', zodError: parsed.error.format() } as any,
+        },
+      });
+      await this.recordFailedExtraction(document, workspaceId, requestedByUserId, extractorVersion, {
+        reason: 'schema_validation_failed',
+        zodError: parsed.error.issues.slice(0, 10) as any,
+      });
+      this.logger.error(
+        `Rent roll extraction returned schema-invalid data for document ${documentId}: ${parsed.error.message}`,
+      );
+      throw new InternalServerErrorException(
+        'Extraction returned an unexpected format. This has been logged for review.',
+      );
+    }
+
+    const data = parsed.data;
+
+    // Hardened check 3: Substantively empty result (zero units)
+    if ((data.units || []).length === 0) {
+      await this.recordFailedExtraction(document, workspaceId, requestedByUserId, extractorVersion, {
+        reason: 'zero_units_extracted',
+        missingItems: data.missingItems || [],
+      });
+      throw new BadRequestException(
+        'Zero units extracted from document. Confirm format and try re-uploading.',
+      );
     }
 
     await this.db.client.aiRun.update({
@@ -144,25 +192,26 @@ export class RentRollExtractionService {
         modelProvider: 'gemini',
         modelName: 'gemini-1.5-pro',
         costEstimate: 0.0,
-        outputRefJson: { unitCount: result.units?.length || 0 } as any,
+        outputRefJson: { unitCount: data.units.length } as any,
       },
     });
 
     // 5. Build a per-field confidence map.
-    const confidenceJson = this.buildConfidenceMap(result);
+    const confidenceJson = this.buildConfidenceMap(data);
 
     // 6. Extract flat list of span IDs.
-    const flatSpanIds = this.extractSpans(result);
+    const flatSpanIds = this.extractSpans(data);
 
     // 7. Persist to document_extractions.
     const extraction = await this.db.client.documentExtraction.create({
       data: {
         documentId,
         extractorVersion,
-        fieldsJson: result as any,
+        fieldsJson: data as any,
         confidenceJson: confidenceJson as any,
-        missingItemsJson: result.missingItems || [],
+        missingItemsJson: data.missingItems || [],
         sourceSpansJson: flatSpanIds as any,
+        status: 'completed',
       },
     });
 
@@ -176,11 +225,45 @@ export class RentRollExtractionService {
         entityType: 'document_extraction',
         entityId: extraction.id,
         action: 'created',
-        afterJson: { extractorVersion, unitCount: result.units?.length || 0 } as any,
+        afterJson: { extractorVersion, unitCount: data.units.length } as any,
       },
     });
 
     return extraction;
+  }
+
+  private async recordFailedExtraction(
+    document: { id: string },
+    workspaceId: string,
+    actorUserId: string,
+    extractorVersion: string,
+    failureDetail: Record<string, any>,
+  ) {
+    const workspace = await this.db.client.workspace.findUnique({ where: { id: workspaceId } });
+    await this.db.client.documentExtraction.create({
+      data: {
+        documentId: document.id,
+        extractorVersion,
+        fieldsJson: { units: [], missingItems: ['ALL_FIELDS'] } as any,
+        confidenceJson: { documentAggregateConfidence: 0, perUnit: [], lowConfidenceUnits: [] } as any,
+        missingItemsJson: ['ALL_FIELDS'] as any,
+        sourceSpansJson: [] as any,
+        status: 'failed',
+        failureDetailJson: failureDetail as any,
+      },
+    });
+
+    await this.db.client.auditLog.create({
+      data: {
+        organizationId: workspace?.organizationId || null,
+        workspaceId,
+        actorUserId,
+        entityType: 'document_extraction',
+        entityId: document.id,
+        action: 'extraction_failed',
+        afterJson: failureDetail as any,
+      },
+    });
   }
 
   private buildConfidenceMap(

@@ -1,0 +1,19 @@
+{
+  "name": "@atlas/country-pack",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w --preserveWatchOutput",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.23.8",
+    "@atlas/shared-types": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

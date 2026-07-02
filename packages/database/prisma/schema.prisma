@@ -1,0 +1,1107 @@
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, postgis, vector]
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+model Organization {
+  id              String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String
+  slug            String                   @unique
+  planTier        String                   @default("starter") @map("plan_tier")
+  defaultCurrency String                   @default("USD") @db.Char(3) @map("default_currency")
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  memberships     OrganizationMembership[]
+  workspaces      Workspace[]
+  auditLogs       AuditLog[]
+
+  @@map("organizations")
+}
+
+model User {
+  id              String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String                   @unique
+  fullName        String                   @map("full_name")
+  authProvider    String                   @map("auth_provider")
+  passwordHash    String?                  @map("password_hash")
+  status          String                   @default("active")
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  memberships     OrganizationMembership[] @relation("UserMemberships")
+  invitedMembers  OrganizationMembership[] @relation("InvitedByUser")
+  workspaces      Workspace[]              @relation("CreatedByUser")
+  auditLogs       AuditLog[]
+  investorProfiles InvestorProfile[]
+  savedSearches   SavedSearch[]
+  shortlists      Shortlist[]
+  decisions       InvestmentDecision[]
+  portfolios      Portfolio[]
+
+  @@map("users")
+}
+
+model OrganizationMembership {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  role           String
+  status         String       @default("active")
+  invitedByUserId String?     @map("invited_by_user_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation("UserMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  invitedByUser  User?        @relation("InvitedByUser", fields: [invitedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, userId])
+  @@map("organization_memberships")
+}
+
+model Workspace {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  name           String
+  workspaceType  String               @default("investment") @map("workspace_type")
+  createdByUserId String?             @map("created_by_user_id") @db.Uuid
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser  User?                @relation("CreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  auditLogs      AuditLog[]
+  profiles       InvestorProfile[]
+  savedSearches  SavedSearch[]
+  shortlists     Shortlist[]
+  decisions      InvestmentDecision[]
+  dailyBriefs    DailyBrief[]
+  portfolios     Portfolio[]
+  jobs           Job[]
+  aiRuns         AiRun[]
+  documents      Document[]
+  underwriteRuns UnderwriteRun[]
+  evidence       Evidence[]
+  goals          Goal[]
+  entityNodes    EntityNode[]
+  entityRelationships EntityRelationship[]
+  agentMessages  AgentMessage[]
+  kernelProcesses KernelProcess[]
+  optimizationProposals OptimizationProposal[]
+
+  @@map("workspaces")
+}
+
+model AuditLog {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String?       @map("organization_id") @db.Uuid
+  workspaceId    String?       @map("workspace_id") @db.Uuid
+  actorUserId    String?       @map("actor_user_id") @db.Uuid
+  entityType     String        @map("entity_type")
+  entityId       String        @map("entity_id")
+  action         String
+  beforeJson     Json?         @map("before_json")
+  afterJson      Json?         @map("after_json")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workspace      Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actorUser      User?         @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+model CountryPack {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  countryCode        String          @unique @db.Char(2) @map("country_code")
+  name               String
+  status             String          @default("active")
+  baseCurrency       String          @db.Char(3) @map("base_currency")
+  timezone           String
+  supportsResidential Boolean        @default(true) @map("supports_residential")
+  supportsCommercial  Boolean        @default(false) @map("supports_commercial")
+  configJson         Json            @default("{}") @map("config_json")
+  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  cities             CityPack[]
+  sources            SourcePack[]
+  scoreTemplates     ScoreTemplate[]
+  forecastTemplates  ForecastTemplate[]
+  listingSources     ListingSource[]
+  scoreSnapshots     ScoreSnapshot[]
+
+  @@map("country_packs")
+}
+
+model CityPack {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  countryPackId String      @map("country_pack_id") @db.Uuid
+  cityCode      String      @map("city_code")
+  name          String
+  configJson    Json        @default("{}") @map("config_json")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  countryPack   CountryPack @relation(fields: [countryPackId], references: [id], onDelete: Cascade)
+
+  @@unique([countryPackId, cityCode])
+  @@map("city_packs")
+}
+
+model SourcePack {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  countryPackId     String      @map("country_pack_id") @db.Uuid
+  sourceName        String      @map("source_name")
+  sourceType        String      @map("source_type")
+  connectorType     String      @map("connector_type")
+  authConfigJson    Json        @default("{}") @map("auth_config_json")
+  mappingConfigJson Json        @default("{}") @map("mapping_config_json")
+  refreshPolicyJson Json        @default("{}") @map("refresh_policy_json")
+  status            String      @default("active")
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  countryPack       CountryPack @relation(fields: [countryPackId], references: [id], onDelete: Cascade)
+
+  @@unique([countryPackId, sourceName])
+  @@map("source_packs")
+}
+
+model ScoreTemplate {
+  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  countryPackId         String      @map("country_pack_id") @db.Uuid
+  scoreKey              String      @map("score_key")
+  version               Int
+  formulaJson           Json        @map("formula_json")
+  weightingJson         Json        @default("{}") @map("weighting_json")
+  missingDataPolicyJson Json        @default("{}") @map("missing_data_policy_json")
+  status                String      @default("draft")
+  createdAt             DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  countryPack           CountryPack @relation(fields: [countryPackId], references: [id], onDelete: Cascade)
+
+  @@unique([countryPackId, scoreKey, version])
+  @@map("score_templates")
+}
+
+model ForecastTemplate {
+  id                   String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  countryPackId        String      @map("country_pack_id") @db.Uuid
+  forecastKey          String      @map("forecast_key")
+  version              Int
+  modelPolicyJson      Json        @default("{}") @map("model_policy_json")
+  featurePolicyJson    Json        @default("{}") @map("feature_policy_json")
+  confidencePolicyJson Json        @default("{}") @map("confidence_policy_json")
+  status               String      @default("draft")
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  countryPack          CountryPack @relation(fields: [countryPackId], references: [id], onDelete: Cascade)
+
+  @@unique([countryPackId, forecastKey, version])
+  @@map("forecast_templates")
+}
+
+model Country {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  countryCode  String      @unique @db.Char(2) @map("country_code")
+  name         String
+  currencyCode String      @db.Char(3) @map("currency_code")
+  region       String?
+  geom         Unsupported("geometry(MultiPolygon, 4326)")?
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  cities       City[]
+  developers   Developer[]
+  properties   Property[]
+
+  @@map("countries")
+}
+
+model City {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  countryId   String      @map("country_id") @db.Uuid
+  cityCode    String      @map("city_code")
+  name        String
+  timezone    String
+  geom        Unsupported("geometry(MultiPolygon, 4326)")?
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  country     Country     @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  districts   District[]
+  projects    Project[]
+  buildings   Building[]
+  properties  Property[]
+
+  @@unique([countryId, cityCode])
+  @@map("cities")
+}
+
+model District {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cityId           String        @map("city_id") @db.Uuid
+  districtCode     String        @map("district_code")
+  name             String
+  districtType     String        @default("district") @map("district_type")
+  parentDistrictId String?       @map("parent_district_id") @db.Uuid
+  geom             Unsupported("geometry(MultiPolygon, 4326)")?
+  metadataJson     Json          @default("{}") @map("metadata_json")
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  city             City          @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  parentDistrict   District?     @relation("DistrictHierarchy", fields: [parentDistrictId], references: [id], onDelete: SetNull)
+  subDistricts     District[]    @relation("DistrictHierarchy")
+  microMarkets     MicroMarket[]
+  projects         Project[]
+  buildings        Building[]
+  properties       Property[]
+  saleTransactions SaleTransaction[]
+  rentalTransactions RentalTransaction[]
+
+  @@unique([cityId, districtCode])
+  @@map("districts")
+}
+
+model MicroMarket {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  districtId   String      @map("district_id") @db.Uuid
+  name         String
+  geom         Unsupported("geometry(MultiPolygon, 4326)")?
+  metadataJson Json        @default("{}") @map("metadata_json")
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  district     District    @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  buildings    Building[]
+
+  @@unique([districtId, name])
+  @@map("micro_markets")
+}
+
+model Developer {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  countryId      String?     @map("country_id") @db.Uuid
+  name           String
+  normalizedName String      @map("normalized_name")
+  developerType  String?     @map("developer_type")
+  websiteUrl     String?     @map("website_url")
+  metadataJson   Json        @default("{}") @map("metadata_json")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  country        Country?    @relation(fields: [countryId], references: [id], onDelete: SetNull)
+  projects       Project[]
+  buildings      Building[]
+
+  @@map("developers")
+}
+
+model Project {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  developerId    String?     @map("developer_id") @db.Uuid
+  cityId         String      @map("city_id") @db.Uuid
+  districtId     String?     @map("district_id") @db.Uuid
+  name           String
+  projectType    String?     @map("project_type")
+  status         String?
+  launchDate     DateTime?   @map("launch_date") @db.Date
+  completionDate DateTime?   @map("completion_date") @db.Date
+  geom           Unsupported("geometry(MultiPolygon, 4326)")?
+  metadataJson   Json        @default("{}") @map("metadata_json")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  developer      Developer?  @relation(fields: [developerId], references: [id], onDelete: SetNull)
+  city           City        @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  district       District?   @relation(fields: [districtId], references: [id], onDelete: SetNull)
+  buildings      Building[]
+  properties     Property[]
+
+  @@map("projects")
+}
+
+model Building {
+  id                  String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId           String?                @map("project_id") @db.Uuid
+  developerId         String?                @map("developer_id") @db.Uuid
+  cityId              String                 @map("city_id") @db.Uuid
+  districtId          String?                @map("district_id") @db.Uuid
+  microMarketId       String?                @map("micro_market_id") @db.Uuid
+  name                String
+  normalizedName      String                 @map("normalized_name")
+  buildingType        String?                @map("building_type")
+  status              String?
+  handoverDate        DateTime?              @map("handover_date") @db.Date
+  floorsCount         Int?                   @map("floors_count")
+  unitCount           Int?                   @map("unit_count")
+  geom                Unsupported("geometry(Point, 4326)")?
+  metadataJson        Json                   @default("{}") @map("metadata_json")
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  project             Project?               @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  developer           Developer?             @relation(fields: [developerId], references: [id], onDelete: SetNull)
+  city                City                   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  district            District?              @relation(fields: [districtId], references: [id], onDelete: SetNull)
+  microMarket         MicroMarket?           @relation(fields: [microMarketId], references: [id], onDelete: SetNull)
+  properties          Property[]
+  saleTransactions    SaleTransaction[]
+  rentalTransactions  RentalTransaction[]
+  serviceChargeRecords ServiceChargeRecord[]
+
+  @@map("buildings")
+}
+
+model Property {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  buildingId          String?             @map("building_id") @db.Uuid
+  projectId           String?             @map("project_id") @db.Uuid
+  cityId              String              @map("city_id") @db.Uuid
+  districtId          String?             @map("district_id") @db.Uuid
+  countryId           String?             @map("country_id") @db.Uuid
+  externalPropertyRef String?             @map("external_property_ref")
+  propertyType        String              @map("property_type")
+  bedrooms            Int?
+  bathrooms           Int?
+  interiorAreaSqm     Decimal?            @map("interior_area_sqm") @db.Decimal(12, 2)
+  exteriorAreaSqm     Decimal?            @map("exterior_area_sqm") @db.Decimal(12, 2)
+  floorNumber         Int?                @map("floor_number")
+  tenureType          String?             @map("tenure_type")
+  ownershipType       String?             @map("ownership_type")
+  furnishingStatus    String?             @map("furnishing_status")
+  occupancyStatus     String?             @map("occupancy_status")
+  geom                Unsupported("geometry(Point, 4326)")?
+  metadataJson        Json                @default("{}") @map("metadata_json")
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  building            Building?           @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  project             Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  city                City                @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  district            District?           @relation(fields: [districtId], references: [id], onDelete: SetNull)
+  country             Country?            @relation(fields: [countryId], references: [id], onDelete: SetNull)
+  listings            Listing[]
+  saleTransactions    SaleTransaction[]
+  rentalTransactions  RentalTransaction[]
+  portfolioPositions  PortfolioPosition[]
+  underwriteRuns      UnderwriteRun[]
+  evidence            Evidence[]
+
+  @@map("properties")
+}
+
+model ListingSource {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  countryPackId String?     @map("country_pack_id") @db.Uuid
+  name          String      @unique
+  sourceType    String      @map("source_type")
+  status        String      @default("active")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  countryPack   CountryPack? @relation(fields: [countryPackId], references: [id], onDelete: Cascade)
+  listings      Listing[]
+
+  @@map("listing_sources")
+}
+
+model Listing {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  propertyId        String?       @map("property_id") @db.Uuid
+  listingSourceId   String        @map("listing_source_id") @db.Uuid
+  externalListingId String        @map("external_listing_id")
+  listingType       String        @map("listing_type")
+  listingStatus     String        @map("listing_status")
+  url               String?
+  priceAmount       Decimal?      @map("price_amount") @db.Decimal(14, 2)
+  priceCurrency     String?       @db.Char(3) @map("price_currency")
+  rentFrequency     String?       @map("rent_frequency")
+  listedAt          DateTime?     @map("listed_at") @db.Timestamptz
+  removedAt         DateTime?     @map("removed_at") @db.Timestamptz
+  brokerName        String?       @map("broker_name")
+  brokerCompany     String?       @map("broker_company")
+  rawAttributesJson Json          @default("{}") @map("raw_attributes_json")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  property          Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  listingSource     ListingSource @relation(fields: [listingSourceId], references: [id], onDelete: Cascade)
+  media             ListingMedia[]
+
+  @@unique([listingSourceId, externalListingId])
+  @@map("listings")
+}
+
+model ListingMedia {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listingId String   @map("listing_id") @db.Uuid
+  mediaType String   @map("media_type")
+  url       String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("listing_media")
+}
+
+model SaleTransaction {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  propertyId       String?   @map("property_id") @db.Uuid
+  buildingId       String?   @map("building_id") @db.Uuid
+  districtId       String?   @map("district_id") @db.Uuid
+  sourceName       String    @map("source_name")
+  transactionDate  DateTime  @map("transaction_date") @db.Date
+  priceAmount      Decimal   @map("price_amount") @db.Decimal(14, 2)
+  priceCurrency    String    @db.Char(3) @map("price_currency")
+  pricePerSqm      Decimal?  @map("price_per_sqm") @db.Decimal(14, 2)
+  buyerType        String?   @map("buyer_type")
+  sellerType       String?   @map("seller_type")
+  isNewSale        Boolean?  @map("is_new_sale")
+  isOffPlan        Boolean?  @map("is_off_plan")
+  sourceRecordId   String?   @map("source_record_id")
+  sourceConfidence Decimal?  @map("source_confidence") @db.Decimal(5, 2)
+  rawRecordJson    Json      @default("{}") @map("raw_record_json")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  property         Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  building         Building? @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  district         District? @relation(fields: [districtId], references: [id], onDelete: SetNull)
+
+  @@map("sale_transactions")
+}
+
+model RentalTransaction {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  propertyId        String?   @map("property_id") @db.Uuid
+  buildingId        String?   @map("building_id") @db.Uuid
+  districtId        String?   @map("district_id") @db.Uuid
+  contractStartDate DateTime? @map("contract_start_date") @db.Date
+  contractEndDate   DateTime? @map("contract_end_date") @db.Date
+  annualRentAmount  Decimal   @map("annual_rent_amount") @db.Decimal(14, 2)
+  rentCurrency      String    @db.Char(3) @map("rent_currency")
+  rentFrequency     String?   @map("rent_frequency")
+  sourceName        String    @map("source_name")
+  sourceRecordId    String?   @map("source_record_id")
+  sourceConfidence  Decimal?  @map("source_confidence") @db.Decimal(5, 2)
+  rawRecordJson     Json      @default("{}") @map("raw_record_json")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  property          Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  building          Building? @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  district          District? @relation(fields: [districtId], references: [id], onDelete: SetNull)
+
+  @@map("rental_transactions")
+}
+
+model ServiceChargeRecord {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  buildingId     String   @map("building_id") @db.Uuid
+  effectiveYear  Int      @map("effective_year")
+  chargePerSqm   Decimal  @map("charge_per_sqm") @db.Decimal(12, 2)
+  currency       String   @db.Char(3)
+  sourceName     String   @map("source_name")
+  sourceRecordId String?  @map("source_record_id")
+  confidence     Decimal? @db.Decimal(5, 2)
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  building       Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@unique([buildingId, effectiveYear, sourceName])
+  @@map("service_charge_records")
+}
+
+model SourceRecord {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sourceName       String             @map("source_name")
+  sourceEntityType String             @map("source_entity_type")
+  sourceRecordId   String             @map("source_record_id")
+  rawStoragePath   String             @map("raw_storage_path")
+  capturedAt       DateTime           @default(now()) @map("captured_at") @db.Timestamptz
+  checksum         String?
+  metadataJson     Json               @default("{}") @map("metadata_json")
+  links            EntitySourceLink[]
+
+  @@unique([sourceName, sourceEntityType, sourceRecordId])
+  @@map("source_records")
+}
+
+model EntitySourceLink {
+  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityType        String       @map("entity_type")
+  entityId          String       @map("entity_id")
+  sourceRecordId    String       @map("source_record_id") @db.Uuid
+  mappingConfidence Decimal?     @map("mapping_confidence") @db.Decimal(5, 2)
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  sourceRecord      SourceRecord @relation(fields: [sourceRecordId], references: [id], onDelete: Cascade)
+
+  @@map("entity_source_links")
+}
+
+model DataFreshness {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sourceName     String    @map("source_name")
+  marketScope    String?   @map("market_scope")
+  entityScope    String?   @map("entity_scope")
+  lastSuccessAt  DateTime? @map("last_success_at") @db.Timestamptz
+  lastAttemptAt  DateTime? @map("last_attempt_at") @db.Timestamptz
+  status         String    @default("unknown")
+  notes          String?
+
+  @@unique([sourceName, marketScope, entityScope])
+  @@map("data_freshness")
+}
+
+model InvestorProfile {
+  id                        String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId               String              @map("workspace_id") @db.Uuid
+  name                      String
+  baseCurrency              String              @db.Char(3) @map("base_currency")
+  capitalAvailable          Decimal             @map("capital_available") @db.Decimal(14, 2)
+  riskTolerance             String              @map("risk_tolerance")
+  investmentHorizonMonths   Int                 @map("investment_horizon_months")
+  incomeVsGrowthPreference  String              @map("income_vs_growth_preference")
+  financingPreference       String              @map("financing_preference")
+  targetCountriesJson       Json                @default("[]") @map("target_countries_json")
+  constraintsJson           Json                @default("{}") @map("constraints_json")
+  goalsJson                 Json                @default("{}") @map("goals_json")
+  createdByUserId           String?             @map("created_by_user_id") @db.Uuid
+  createdAt                 DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                 DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspace                 Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdByUser             User?               @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  savedSearches             SavedSearch[]
+  shortlists                Shortlist[]
+  decisions                 InvestmentDecision[]
+
+  @@map("investor_profiles")
+}
+
+model SavedSearch {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId     String           @map("workspace_id") @db.Uuid
+  investorProfileId String?        @map("investor_profile_id") @db.Uuid
+  name            String
+  filtersJson     Json             @default("{}") @map("filters_json")
+  alertPolicyJson Json             @default("{}") @map("alert_policy_json")
+  createdByUserId String?          @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  investorProfile InvestorProfile? @relation(fields: [investorProfileId], references: [id], onDelete: Cascade)
+  createdByUser   User?            @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@map("saved_searches")
+}
+
+model Shortlist {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId     String          @map("workspace_id") @db.Uuid
+  investorProfileId String?       @map("investor_profile_id") @db.Uuid
+  name            String
+  status          String          @default("active")
+  createdByUserId String?         @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  investorProfile InvestorProfile? @relation(fields: [investorProfileId], references: [id], onDelete: SetNull)
+  createdByUser   User?           @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  items           ShortlistItem[]
+
+  @@map("shortlists")
+}
+
+model ShortlistItem {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shortlistId   String    @map("shortlist_id") @db.Uuid
+  entityType    String    @map("entity_type")
+  entityId      String    @map("entity_id")
+  rankPosition  Int?      @map("rank_position")
+  notes         String?
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  shortlist     Shortlist @relation(fields: [shortlistId], references: [id], onDelete: Cascade)
+
+  @@map("shortlist_items")
+}
+
+model ScoreSnapshot {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityType         String       @map("entity_type")
+  entityId           String       @map("entity_id")
+  countryPackId      String?      @map("country_pack_id") @db.Uuid
+  scoreKey           String       @map("score_key")
+  scoreValue         Decimal      @map("score_value") @db.Decimal(8, 2)
+  confidenceScore    Decimal?     @map("confidence_score") @db.Decimal(5, 2)
+  templateVersion    Int?         @map("template_version")
+  freshnessTimestamp DateTime?    @map("freshness_timestamp") @db.Timestamptz
+  contributorsJson   Json         @default("[]") @map("contributors_json")
+  variablesJson      Json         @default("{}") @map("variables_json")
+  explanationJson    Json         @default("{}") @map("explanation_json")
+  generatedAt        DateTime     @default(now()) @map("generated_at") @db.Timestamptz
+  countryPack        CountryPack? @relation(fields: [countryPackId], references: [id], onDelete: SetNull)
+
+  @@map("score_snapshots")
+}
+
+model ForecastSnapshot {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entityType         String   @map("entity_type")
+  entityId           String   @map("entity_id")
+  forecastKey        String   @map("forecast_key")
+  horizonMonths      Int      @map("horizon_months")
+  scenarioKey        String   @map("scenario_key")
+  forecastValueJson  Json     @default("{}") @map("forecast_value_json")
+  lowerBoundJson     Json     @default("{}") @map("lower_bound_json")
+  upperBoundJson     Json     @default("{}") @map("upper_bound_json")
+  confidenceScore    Decimal? @map("confidence_score") @db.Decimal(5, 2)
+  modelVersion       String?  @map("model_version")
+  featuresJson       Json     @default("{}") @map("features_json")
+  limitationsJson    Json     @default("{}") @map("limitations_json")
+  generatedAt        DateTime @default(now()) @map("generated_at") @db.Timestamptz
+
+  @@map("forecast_snapshots")
+}
+
+model InvestmentDecision {
+  id                      String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId             String           @map("workspace_id") @db.Uuid
+  investorProfileId       String?          @map("investor_profile_id") @db.Uuid
+  entityType              String           @map("entity_type")
+  entityId                String           @map("entity_id")
+  verdict                 String
+  policyVerdict           String?          @map("policy_verdict")
+  aiVerdict               String?          @map("ai_verdict")
+  overrideReason          String?          @map("override_reason")
+  confidenceScore         Decimal?         @map("confidence_score") @db.Decimal(5, 2)
+  thesisSummary              String?          @map("thesis_summary")
+  objectionsSummary          String?          @map("objections_summary")
+  changeConditionsSummary    String?          @map("change_conditions_summary")
+  thesisClaimsJson           Json?            @map("thesis_claims_json")
+  objectionsClaimsJson       Json?            @map("objections_claims_json")
+  changeConditionsClaimsJson Json?            @map("change_conditions_claims_json")
+  decisionSource             String           @default("system") @map("decision_source")
+  approvedByUserId        String?          @map("approved_by_user_id") @db.Uuid
+  createdAt               DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  workspace               Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  investorProfile         InvestorProfile? @relation(fields: [investorProfileId], references: [id], onDelete: SetNull)
+  approvedByUser          User?            @relation(fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  aiRunId                 String?          @map("ai_run_id") @db.Uuid
+  aiRun                   AiRun?           @relation(fields: [aiRunId], references: [id], onDelete: SetNull)
+  underwriteRunId         String?          @map("underwrite_run_id") @db.Uuid
+  underwriteRun           UnderwriteRun?   @relation(fields: [underwriteRunId], references: [id], onDelete: SetNull)
+
+  @@map("investment_decisions")
+}
+
+model EventSource {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @unique
+  sourceType String   @map("source_type")
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  events    Event[]
+
+  @@map("event_sources")
+}
+
+model Event {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventSourceId String?        @map("event_source_id") @db.Uuid
+  eventType     String         @map("event_type")
+  title         String
+  summary       String
+  occurredAt    DateTime?      @map("occurred_at") @db.Timestamptz
+  publishedAt   DateTime?      @map("published_at") @db.Timestamptz
+  severity      String
+  confidence    Decimal?       @db.Decimal(5, 2)
+  rawEventJson  Json           @default("{}") @map("raw_event_json")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  eventSource   EventSource?   @relation(fields: [eventSourceId], references: [id], onDelete: SetNull)
+  impacts       EventImpact[]
+
+  @@map("events")
+}
+
+model EventImpact {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId         String   @map("event_id") @db.Uuid
+  entityType      String   @map("entity_type")
+  entityId        String   @map("entity_id")
+  impactDomain    String   @map("impact_domain")
+  impactDirection String   @map("impact_direction")
+  impactMagnitude Decimal? @map("impact_magnitude") @db.Decimal(6, 2)
+  confidenceScore Decimal? @map("confidence_score") @db.Decimal(5, 2)
+  rationale       String?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("event_impacts")
+}
+
+model DailyBrief {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  briefDate   DateTime  @map("brief_date") @db.Date
+  summaryJson Json      @default("{}") @map("summary_json")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, briefDate])
+  @@map("daily_briefs")
+}
+
+model Portfolio {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId     String              @map("workspace_id") @db.Uuid
+  name            String
+  baseCurrency    String              @db.Char(3) @map("base_currency")
+  portfolioType   String              @default("core") @map("portfolio_type")
+  createdByUserId String?             @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspace       Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdByUser   User?               @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  positions       PortfolioPosition[]
+
+  @@map("portfolios")
+}
+
+model PortfolioPosition {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  portfolioId         String              @map("portfolio_id") @db.Uuid
+  propertyId          String?             @map("property_id") @db.Uuid
+  acquisitionDate     DateTime            @map("acquisition_date") @db.Date
+  acquisitionPrice    Decimal             @map("acquisition_price") @db.Decimal(14, 2)
+  acquisitionCurrency String              @db.Char(3) @map("acquisition_currency")
+  ownershipSharePct   Decimal             @default(100.00) @map("ownership_share_pct") @db.Decimal(5, 2)
+  status              String              @default("active")
+  notes               String?
+  createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  portfolio           Portfolio           @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  property            Property?           @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  financingFacilities FinancingFacility[]
+  cashFlowEntries     CashFlowEntry[]
+
+  @@map("portfolio_positions")
+}
+
+model FinancingFacility {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  portfolioPositionId String            @map("portfolio_position_id") @db.Uuid
+  lenderName          String            @map("lender_name")
+  loanType            String            @map("loan_type")
+  principalAmount     Decimal           @map("principal_amount") @db.Decimal(14, 2)
+  currency            String            @db.Char(3)
+  interestRateType    String            @map("interest_rate_type")
+  interestRateValue   Decimal           @map("interest_rate_value") @db.Decimal(8, 4)
+  termMonths          Int               @map("term_months")
+  ltvAtOrigination    Decimal?          @map("ltv_at_origination") @db.Decimal(5, 2)
+  startDate           DateTime?         @map("start_date") @db.Date
+  maturityDate        DateTime?         @map("maturity_date") @db.Date
+  metadataJson        Json              @default("{}") @map("metadata_json")
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  position            PortfolioPosition @relation(fields: [portfolioPositionId], references: [id], onDelete: Cascade)
+
+  @@map("financing_facilities")
+}
+
+model CashFlowEntry {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  portfolioPositionId String            @map("portfolio_position_id") @db.Uuid
+  entryDate           DateTime          @map("entry_date") @db.Date
+  entryType           String            @map("entry_type")
+  amount              Decimal           @db.Decimal(14, 2)
+  currency            String            @db.Char(3)
+  description         String?
+  sourceType          String?           @map("source_type")
+  sourceReference     String?           @map("source_reference")
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  position            PortfolioPosition @relation(fields: [portfolioPositionId], references: [id], onDelete: Cascade)
+
+  @@map("cash_flow_entries")
+}
+
+model Document {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId      String               @map("workspace_id") @db.Uuid
+  entityType       String               @map("entity_type")
+  entityId         String               @map("entity_id")
+  documentType     String               @map("document_type")
+  storagePath      String               @map("storage_path")
+  fileName         String               @map("file_name")
+  mimeType         String               @map("mime_type")
+  uploadedByUserId String?              @map("uploaded_by_user_id") @db.Uuid
+  uploadedAt       DateTime             @default(now()) @map("uploaded_at") @db.Timestamptz
+  status           String               @default("pending")
+  errorMessage     String?              @map("error_message")
+  workspace        Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  extractions      DocumentExtraction[]
+  chunks           DocumentChunk[]
+
+  @@map("documents")
+}
+
+model DocumentExtraction {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId       String   @map("document_id") @db.Uuid
+  extractorVersion String   @map("extractor_version")
+  fieldsJson       Json     @default("{}") @map("fields_json")
+  confidenceJson   Json     @default("{}") @map("confidence_json")
+  missingItemsJson Json     @default("[]") @map("missing_items_json")
+  sourceSpansJson  Json     @default("[]") @map("source_spans_json")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  document         Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("document_extractions")
+}
+
+model Job {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId   String?    @map("workspace_id") @db.Uuid
+  jobType       String     @map("job_type")
+  status        String     @default("queued")
+  progressPct   Int        @default(0) @map("progress_pct")
+  inputJson     Json       @default("{}") @map("input_json")
+  resultRefJson Json       @default("{}") @map("result_ref_json")
+  errorMessage  String?    @map("error_message")
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  workspace     Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("jobs")
+}
+
+model AiRun {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId   String?    @map("workspace_id") @db.Uuid
+  jobType       String     @map("job_type")
+  modelProvider String     @map("model_provider")
+  modelName     String     @map("model_name")
+  promptVersion String     @map("prompt_version")
+  inputRefJson  Json       @default("{}") @map("input_ref_json")
+  outputRefJson Json       @default("{}") @map("output_ref_json")
+  status        String     @default("queued")
+  errorMessage  String?    @map("error_message")
+  costEstimate  Decimal?   @map("cost_estimate") @db.Decimal(12, 4)
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  workspace     Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  investmentDecisions InvestmentDecision[]
+
+  @@map("ai_runs")
+}
+
+model UnderwriteRun {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId     String   @map("workspace_id") @db.Uuid
+  propertyId      String   @map("property_id") @db.Uuid
+  assumptionsJson Json     @default("{}") @map("assumptions_json")
+  metricsJson     Json     @default("{}") @map("metrics_json")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  property        Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  investmentDecisions InvestmentDecision[]
+
+  @@map("underwrite_runs")
+}
+
+model Evidence {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId  String    @map("workspace_id") @db.Uuid
+  propertyId   String?   @map("property_id") @db.Uuid
+  sourceType   String    @map("source_type") // "document" | "comp" | "listing" | "transaction" | "market_event" | "underwrite_assumption"
+  sourceId     String    @map("source_id") // ID of referenced entity
+  title        String    @map("title")
+  snippet      String?   @map("snippet") @db.Text
+  confidence   Decimal?  @map("confidence") @db.Decimal(5, 2)
+  freshness    DateTime  @map("freshness") @db.Timestamptz
+  metadataJson Json      @default("{}") @map("metadata_json")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  property     Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  @@map("evidence")
+}
+
+model ForexRate {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  from      String   @map("from_currency")
+  to        String   @map("to_currency")
+  rate      Decimal  @db.Decimal(18, 6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([from, to])
+  @@map("forex_rates")
+}
+
+model AgentTask {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobId     String   @unique @map("job_id")
+  status    String   @default("QUEUED")
+  logs      String[]
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("agent_tasks")
+}
+
+model DocumentChunk {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId  String   @map("document_id") @db.Uuid
+  content     String   @db.Text
+  embedding   Unsupported("vector(1536)")
+  pageNumber  Int      @map("page_number")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("document_chunks")
+}
+
+model PromptConfig {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @unique
+  version   Int      @default(1)
+  content   String   @db.Text
+  isActive  Boolean  @default(false) @map("is_active")
+  schemaJson Json    @default("{}") @map("schema_json")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("prompt_configs")
+}
+
+model Goal {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId   String      @map("workspace_id") @db.Uuid
+  title         String
+  description   String
+  status        String      @default("PENDING")
+  executionTree Json        @default("{}") @map("execution_tree")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  objectives    Objective[]
+  agentMessages AgentMessage[]
+  kernelProcesses KernelProcess[]
+  workspace     Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("goals")
+}
+
+model Objective {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  goalId        String    @map("goal_id") @db.Uuid
+  parentId      String?   @map("parent_id") @db.Uuid
+  title         String
+  status        String    @default("PENDING")
+  criteriaJson  Json      @default("{}") @map("criteria_json")
+  agentTaskId   String?   @unique @map("agent_task_id")
+  dependencies  String[]  @default([])
+  goal          Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@map("objectives")
+}
+
+model EntityNode {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId    String               @map("workspace_id") @db.Uuid
+  type           String
+  name           String
+  propertiesJson Json                 @default("{}") @map("properties_json")
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  workspace      Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  outgoing       EntityRelationship[] @relation("SourceNode")
+  incoming       EntityRelationship[] @relation("TargetNode")
+
+  @@unique([workspaceId, type, name])
+  @@map("entity_nodes")
+}
+
+model EntityRelationship {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId    String     @map("workspace_id") @db.Uuid
+  sourceNodeId   String     @map("source_node_id") @db.Uuid
+  targetNodeId   String     @map("target_node_id") @db.Uuid
+  type           String
+  propertiesJson Json       @default("{}") @map("properties_json")
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  workspace      Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sourceNode     EntityNode @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode     EntityNode @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+
+  @@map("entity_relationships")
+}
+
+model AgentMessage {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId  String   @map("workspace_id") @db.Uuid
+  goalId       String   @map("goal_id") @db.Uuid
+  sender       String
+  recipient    String
+  performative String   // PROPOSE | ACCEPT | REJECT | CRITICIZE | INFORM
+  content      Json     @default("{}") @map("content")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  goal         Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@map("agent_messages")
+}
+
+model TestSuite {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  description    String
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  cases          TestCase[]
+  evaluationRuns EvaluationRun[]
+  optimizationProposals OptimizationProposal[]
+
+  @@map("test_suites")
+}
+
+model TestCase {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  suiteId      String    @map("suite_id") @db.Uuid
+  inputGoal    String    @map("input_goal")
+  expectedPlan Json      @default("{}") @map("expected_plan")
+  goldenOutput Json      @default("{}") @map("golden_output")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  suite        TestSuite @relation(fields: [suiteId], references: [id], onDelete: Cascade)
+
+  @@map("test_cases")
+}
+
+model EvaluationRun {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  suiteId    String    @map("suite_id") @db.Uuid
+  commitSha  String    @map("commit_sha")
+  metrics    Json      @default("{}") @map("metrics")
+  passed     Boolean   @default(false)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  suite      TestSuite @relation(fields: [suiteId], references: [id], onDelete: Cascade)
+
+  @@map("evaluation_runs")
+}
+
+model KernelProcess {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId     String   @map("workspace_id") @db.Uuid
+  goalId          String   @map("goal_id") @db.Uuid
+  status          String   @default("READY")
+  priority        Int      @default(5)
+  allocatedTokens Int      @default(0) @map("allocated_tokens")
+  cpuLimitMs      Int      @default(5000) @map("cpu_limit_ms")
+  stepLimit       Int      @default(10) @map("step_limit")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  goal            Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@map("kernel_processes")
+}
+
+model OptimizationProposal {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId    String   @map("workspace_id") @db.Uuid
+  targetArea     String   @map("target_area")
+  originalConfig Json     @default("{}") @map("original_config")
+  proposedConfig Json     @default("{}") @map("proposed_config")
+  testSuiteId    String?  @map("test_suite_id") @db.Uuid
+  metricDelta    Json     @default("{}") @map("metric_delta")
+  status         String   @default("PENDING_APPROVAL") // PENDING_APPROVAL | APPROVED | REJECTED
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  workspace      Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  testSuite      TestSuite? @relation(fields: [testSuiteId], references: [id], onDelete: SetNull)
+
+  @@map("optimization_proposals")
+}
+

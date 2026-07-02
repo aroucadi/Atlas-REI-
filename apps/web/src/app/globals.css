@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+:root {
+  --color-bg-base: #09090b;
+  --color-bg-surface: #111217;
+  --color-bg-surface-elevated: #181a20;
+  --color-bg-surface-alt: #0d0f14;
+  --color-bg-overlay: rgba(5, 8, 15, 0.72);
+  --color-border-subtle: #23262f;
+  --color-border-default: #2c3140;
+  --color-border-strong: #3a4154;
+  --color-text-primary: #f3f4f6;
+  --color-text-secondary: #b0b7c3;
+  --color-text-muted: #7c8596;
+  --color-text-inverse: #09090b;
+  --color-accent-intelligence: #4f7cff;
+  --color-accent-intelligence-soft: rgba(79, 124, 255, 0.16);
+  --color-accent-secondary: #7c6cf2;
+  --color-success: #10b981;
+  --color-success-soft: rgba(16, 185, 129, 0.14);
+  --color-warning: #f59e0b;
+  --color-warning-soft: rgba(245, 158, 11, 0.14);
+  --color-danger: #ef4444;
+  --color-danger-soft: rgba(239, 68, 68, 0.14);
+}
+
+@theme {
+  --color-bg-base: var(--color-bg-base);
+  --color-bg-surface: var(--color-bg-surface);
+  --color-bg-surface-elevated: var(--color-bg-surface-elevated);
+  --color-bg-surface-alt: var(--color-bg-surface-alt);
+  --color-bg-overlay: var(--color-bg-overlay);
+  --color-border-subtle: var(--color-border-subtle);
+  --color-border-default: var(--color-border-default);
+  --color-border-strong: var(--color-border-strong);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-inverse: var(--color-text-inverse);
+  --color-accent-intelligence: var(--color-accent-intelligence);
+  --color-accent-intelligence-soft: var(--color-accent-intelligence-soft);
+  --color-accent-secondary: var(--color-accent-secondary);
+  --color-success: var(--color-success);
+  --color-success-soft: var(--color-success-soft);
+  --color-warning: var(--color-warning);
+  --color-warning-soft: var(--color-warning-soft);
+  --color-danger: var(--color-danger);
+  --color-danger-soft: var(--color-danger-soft);
+
+  --font-sans: "Geist Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+}
+
+body {
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

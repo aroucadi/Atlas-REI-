@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dubai Investment Intelligence Dashboard</title>
+  <style>
+    :root{
+      --bg:#05070b;--bg2:#0a1018;--panel:rgba(12,18,28,.74);--panel2:rgba(18,27,40,.64);
+      --line:rgba(255,255,255,.08);--text:#f4f7fb;--muted:#94a2b8;--muted2:#66758b;
+      --mint:#92f0d7;--blue:#7c9cff;--violet:#bea8ff;--gold:#ffcf70;--red:#ff7676;--green:#61f0a8;
+      --radius:24px;--radius2:18px;--shadow:0 24px 70px rgba(0,0,0,.45);
+      --sans:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,monospace;
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth}
+    body{
+      margin:0;color:var(--text);font-family:var(--sans);background:
+      radial-gradient(circle at 15% 10%,rgba(124,156,255,.16),transparent 24%),
+      radial-gradient(circle at 85% 8%,rgba(146,240,215,.12),transparent 22%),
+      radial-gradient(circle at 50% 120%,rgba(190,168,255,.16),transparent 30%),
+      linear-gradient(180deg,#04060a,#070b10 40%,#05070b);
+      overflow-x:hidden;
+    }
+    body:before{
+      content:"";position:fixed;inset:0;pointer-events:none;opacity:.28;
+      background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);
+      background-size:42px 42px;mask-image:radial-gradient(circle at center,black 30%,transparent 78%);
+    }
+    a{text-decoration:none;color:inherit} button{font:inherit}
+    .shell{width:min(1440px,calc(100% - 28px));margin:0 auto;display:grid;grid-template-columns:280px 1fr;gap:20px;padding:18px 0 60px}
+    .sidebar{
+      position:sticky;top:14px;height:calc(100vh - 28px);align-self:start;padding:18px;border:1px solid var(--line);
+      border-radius:30px;background:linear-gradient(180deg,rgba(9,13,20,.92),rgba(7,10,16,.84));
+      backdrop-filter:blur(18px);box-shadow:var(--shadow);display:flex;flex-direction:column;justify-content:space-between
+    }
+    .brand{display:flex;gap:12px;align-items:center;margin-bottom:20px}
+    .mark{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-weight:800;color:var(--mint);
+      background:linear-gradient(135deg,rgba(146,240,215,.24),rgba(124,156,255,.22));border:1px solid rgba(255,255,255,.08)}
+    .brand h1{margin:0;font-size:.98rem;line-height:1.25} .brand p{margin:2px 0 0;color:var(--muted);font-size:.82rem}
+    .nav{display:grid;gap:8px}
+    .nav a{
+      display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 14px;border-radius:14px;
+      color:var(--muted);background:rgba(255,255,255,.02);border:1px solid transparent;transition:.18s ease
+    }
+    .nav a:hover,.nav a.active{transform:translateX(4px);color:var(--text);background:linear-gradient(90deg,rgba(146,240,215,.08),rgba(124,156,255,.04));border-color:rgba(146,240,215,.18)}
+    .nav small{font-family:var(--mono);font-size:.72rem;color:var(--muted2)}
+    .sidebar-card{padding:16px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+    .sidebar-card .l{font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+    .sidebar-card .v{font-size:1.4rem;font-weight:700;margin-bottom:4px}.sidebar-card .s{font-size:.9rem;color:var(--muted)}
+    .main{display:grid;gap:20px}
+    .section{
+      position:relative;padding:28px;border-radius:30px;border:1px solid var(--line);
+      background:linear-gradient(180deg,rgba(10,14,22,.84),rgba(10,15,24,.64));backdrop-filter:blur(18px);box-shadow:var(--shadow);overflow:hidden
+    }
+    .section:before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.03),transparent 40%);pointer-events:none}
+    .eyebrow{
+      display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border-radius:999px;background:rgba(146,240,215,.08);
+      border:1px solid rgba(146,240,215,.16);color:var(--mint);font-size:.75rem;text-transform:uppercase;letter-spacing:.08em
+    }
+    .head{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:20px;position:relative;z-index:1}
+    .head h2{margin:12px 0 6px;font-size:clamp(1.8rem,2.8vw,2.9rem);line-height:1.03;letter-spacing:-.04em}
+    .lead{margin:0;max-width:820px;color:var(--muted);font-size:1rem;line-height:1.7}
+    .hero{min-height:84vh;display:grid;align-items:end;background:
+      radial-gradient(circle at 90% 16%,rgba(146,240,215,.14),transparent 18%),
+      radial-gradient(circle at 12% 20%,rgba(124,156,255,.18),transparent 20%),
+      linear-gradient(180deg,rgba(10,14,22,.94),rgba(7,10,16,.9))}
+    .hero-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:22px;position:relative;z-index:1}
+    .hero h1{margin:0;font-size:clamp(3rem,6vw,6.6rem);line-height:.92;letter-spacing:-.06em;max-width:860px}
+    .hero-top{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+    .hero-top span{padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    .answer{display:grid;grid-template-columns:auto 1fr;gap:16px;padding:18px 20px;border-radius:22px;border:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));margin:18px 0}
+    .verdict{display:inline-flex;align-items:center;justify-content:center;padding:14px 18px;border-radius:18px;min-width:160px;
+      background:linear-gradient(135deg,rgba(255,184,108,.22),rgba(255,118,118,.22));border:1px solid rgba(255,184,108,.34);font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#fff5d8}
+    .answer h3{margin:0 0 6px;font-size:.92rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    .answer p{margin:0;font-size:1rem;line-height:1.7}
+    .briefs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .brief{padding:16px;border-radius:18px;background:rgba(255,255,255,.03);border:1px solid var(--line)}
+    .brief .k{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+    .brief .v{font-size:1.3rem;font-weight:700;margin-bottom:4px}.brief .d{font-size:.9rem;color:var(--muted)}
+    .gauges{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .gauge-card{padding:18px;border-radius:22px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));min-height:214px}
+    .gauge-card .t{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px}
+    .ring{--value:50;--tone:var(--mint);width:112px;height:112px;border-radius:50%;margin:0 auto 14px;position:relative;
+      background:radial-gradient(circle closest-side,rgba(5,7,11,.96) 68%,transparent 70% 100%),conic-gradient(var(--tone) calc(var(--value) * 1%),rgba(255,255,255,.08) 0)}
+    .ring:after{content:"";position:absolute;inset:10px;border:1px solid rgba(255,255,255,.05);border-radius:50%}
+    .ring .center{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+    .ring .n{font-size:2rem;font-weight:800;letter-spacing:-.04em}.ring .u{font-size:.74rem;color:var(--muted);font-family:var(--mono)}
+    .gauge-card p{margin:0;text-align:center;color:var(--muted);font-size:.88rem;line-height:1.6}
+    .grid2,.grid3,.grid4{display:grid;gap:16px;position:relative;z-index:1}.grid2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid3{grid-template-columns:repeat(3,minmax(0,1fr))}.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .panel{padding:20px;border-radius:22px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015))}
+    .panel-title{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px}
+    .panel-title h3{margin:0;font-size:1rem}.meta{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    .big{font-size:clamp(2.1rem,3vw,3.4rem);line-height:1;font-weight:800;letter-spacing:-.05em;margin:10px 0}
+    .subtle{color:var(--muted);font-size:.95rem;line-height:1.7}
+    .stack{display:grid;gap:14px;margin-top:14px}
+    .barrow{display:grid;gap:8px}.barhead{display:flex;justify-content:space-between;gap:12px;font-size:.94rem}
+    .track{height:16px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.05)}
+    .track span{display:block;height:100%;width:0;background:linear-gradient(90deg,rgba(124,156,255,.96),rgba(146,240,215,.92));transition:width 1.2s cubic-bezier(.16,.84,.35,1)}
+    .track.warn span{background:linear-gradient(90deg,rgba(255,184,108,.96),rgba(255,118,118,.92))}
+    .stats2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px}
+    .mini{padding:14px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05)}
+    .mini .k{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}.mini .v{font-size:1.08rem;font-weight:700}.mini .d{font-size:.88rem;color:var(--muted);margin-top:4px}
+    .chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}.chip{padding:10px 12px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:.84rem;color:var(--muted)}
+    .health{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}
+    .hcard{padding:18px;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.03);display:grid;gap:12px;transition:.18s ease}
+    .hcard:hover{transform:translateY(-4px);border-color:rgba(146,240,215,.22)}
+    .hrow{display:flex;justify-content:space-between;gap:10px;align-items:start}.hrow h3{margin:0;font-size:.95rem}
+    .signal{display:inline-flex;padding:6px 10px;border-radius:999px;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid rgba(146,240,215,.16);background:rgba(146,240,215,.08);color:var(--mint)}
+    .signal.warn{color:var(--gold);background:rgba(255,184,108,.08);border-color:rgba(255,184,108,.16)} .signal.danger{color:var(--red);background:rgba(255,118,118,.08);border-color:rgba(255,118,118,.18)}
+    .spark{width:100%;height:56px}.spark path.base{stroke:rgba(255,255,255,.08);stroke-width:2;fill:none}.spark path.line{stroke:var(--mint);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}.spark line{stroke:rgba(255,255,255,.05)}
+    .controls,.area-controls{display:flex;flex-wrap:wrap;gap:10px}
+    .seg{padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:var(--muted);cursor:pointer;transition:.18s ease}
+    .seg:hover,.seg.active{color:var(--text);border-color:rgba(146,240,215,.22);background:linear-gradient(90deg,rgba(146,240,215,.1),rgba(124,156,255,.05));transform:translateY(-1px)}
+    .scenario-layout{display:grid;grid-template-columns:1.05fr .95fr;gap:16px;margin-top:18px}
+    .probs{display:grid;gap:14px}.plabel{display:flex;justify-content:space-between;gap:12px;font-size:.94rem}.plabel span:last-child{font-family:var(--mono);color:var(--muted)}
+    .ptrack{height:14px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.05);overflow:hidden}.ptrack span{display:block;height:100%;width:0;background:linear-gradient(90deg,rgba(124,156,255,.98),rgba(146,240,215,.88));transition:width 1.1s ease}
+    .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}.tile{padding:14px;border-radius:16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05)} .tile .l{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px}.tile .v{font-weight:700;font-size:1rem;line-height:1.45}
+    .wargrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}
+    .heat{display:grid;gap:10px}.heat-grid{display:grid;grid-template-columns:110px repeat(4,1fr);gap:8px}.hl{display:grid;place-items:center;min-height:54px;font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+    .hc{padding:10px;border-radius:14px;border:1px solid rgba(255,255,255,.05);min-height:72px;display:grid;align-content:space-between;gap:8px;font-size:.82rem}.hc .r{font-weight:700;line-height:1.3}.hc.low{background:linear-gradient(180deg,rgba(97,240,168,.12),rgba(97,240,168,.03))}.hc.med{background:linear-gradient(180deg,rgba(255,184,108,.12),rgba(255,184,108,.03))}.hc.high{background:linear-gradient(180deg,rgba(255,118,118,.16),rgba(255,118,118,.04))}
+    .timeline{display:grid;gap:12px;position:relative;padding-left:18px}.timeline:before{content:"";position:absolute;left:5px;top:4px;bottom:4px;width:2px;background:linear-gradient(180deg,rgba(124,156,255,.75),rgba(146,240,215,.45))}
+    .item{position:relative;padding-left:18px}.item:before{content:"";position:absolute;left:-1px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 4px rgba(146,240,215,.12)}
+    .item .date{font-size:.74rem;color:var(--muted);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}.item .event{font-weight:700;margin-bottom:4px}.item p{margin:0;color:var(--muted);font-size:.9rem}
+    .radar svg{width:100%;aspect-ratio:1;max-height:360px}
+    .legend{display:flex;flex-wrap:wrap;gap:10px;color:var(--muted);font-size:.84rem}.legend span{display:inline-flex;gap:8px;align-items:center}.legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+    .battlefield{display:grid;grid-template-columns:410px 1fr;gap:16px;margin-top:18px}
+    .alist{display:grid;gap:12px;max-height:760px;overflow:auto;padding-right:4px}
+    .acard{padding:18px;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.03);cursor:pointer;transition:.18s ease}
+    .acard:hover,.acard.active{transform:translateY(-3px);border-color:rgba(124,156,255,.28);background:linear-gradient(180deg,rgba(124,156,255,.08),rgba(255,255,255,.03))}
+    .arow{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px}.aname{font-size:1.08rem;font-weight:700;margin:0}.atag{padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.08);font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    .ameta{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px}.ameta span{padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);color:var(--muted);font-size:.82rem}
+    .score{font-family:var(--mono)} .score strong{font-size:1.15rem}
+    .detail{display:grid;gap:16px;align-content:start}.dhead{display:flex;justify-content:space-between;gap:16px;align-items:start;flex-wrap:wrap}.dhead h3{margin:0;font-size:1.8rem;letter-spacing:-.04em}.dsummary{max-width:760px;color:var(--muted);margin-top:8px;font-size:.98rem}
+    .dkpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.factgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .fact{padding:16px;border-radius:18px;border:1px solid rgba(255,255,255,.05);background:rgba(255,255,255,.03)} .fact .l{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}.fact .v{font-size:1.02rem;font-weight:700;line-height:1.5}
+    .rails{display:grid;gap:14px}.rail{display:grid;gap:8px}.rhead{display:flex;justify-content:space-between;gap:12px;font-size:.92rem}.rhead span:last-child{font-family:var(--mono);color:var(--muted)}
+    .rtrack{height:10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.04);overflow:hidden}.rtrack span{display:block;height:100%;width:0;transition:width 1.1s ease;background:linear-gradient(90deg,rgba(124,156,255,.96),rgba(146,240,215,.92))}
+    .rtrack.risk span{background:linear-gradient(90deg,rgba(255,184,108,.96),rgba(255,118,118,.92))}
+    .map{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-top:18px}.map svg{width:100%;min-height:420px;border-radius:24px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015))}
+    .cstack{display:grid;gap:12px}.ccard{padding:16px;border-radius:18px;border:1px solid var(--line);background:rgba(255,255,255,.03)} .ccard h3{margin:0 0 8px;font-size:1rem}
+    .insights{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:18px}
+    .icard{padding:18px;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.03);position:relative;overflow:hidden}.icard:after{content:"";position:absolute;inset:auto -20px -50px auto;width:120px;height:120px;background:radial-gradient(circle,rgba(146,240,215,.1),transparent 70%)} .iscore{display:inline-flex;gap:6px;align-items:center;margin-bottom:10px;color:var(--gold);font-family:var(--mono);font-size:.9rem}.icard h3{margin:0 0 8px;font-size:1rem}
+    .accordion{display:grid;gap:12px;margin-top:18px}.acc{border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.03);overflow:hidden}.acc button{width:100%;padding:18px 20px;background:none;border:none;color:var(--text);display:flex;justify-content:space-between;gap:16px;align-items:center;cursor:pointer;text-align:left}.acc button h3{margin:0;font-size:1rem}.acc button span{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.08em}
+    .acontent{max-height:0;overflow:hidden;transition:max-height .28s ease}.acontent .inner{padding:0 20px 20px;display:grid;grid-template-columns:110px 1fr;gap:18px}
+    .severity{--value:72;width:96px;height:96px;border-radius:50%;position:relative;background:radial-gradient(circle closest-side,rgba(5,7,11,.96) 68%,transparent 70% 100%),conic-gradient(var(--red) calc(var(--value) * 1%),rgba(255,255,255,.08) 0)} .severity .num{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--mono);font-weight:800}
+    .decisions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-top:18px}.dcard{display:grid;gap:14px;padding:20px;border-radius:22px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.018))}
+    .dcard.top{border-color:rgba(146,240,215,.24);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)} .rank{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:rgba(146,240,215,.12);border:1px solid rgba(146,240,215,.22);color:var(--mint);font-weight:700;font-family:var(--mono)} .dcard h3{margin:0;font-size:1.08rem}.dcard p{margin:0;color:var(--muted);font-size:.92rem}
+    .dstats{display:grid;gap:10px}.dstat{display:grid;gap:6px}.dstat .h{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:.82rem}.dstat .h strong{color:var(--text);font-family:var(--mono);font-size:.84rem}.dbar{height:9px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden}.dbar span{display:block;height:100%;width:0;transition:width 1.1s ease;background:linear-gradient(90deg,rgba(146,240,215,.96),rgba(124,156,255,.92))}.dbar.risk span{background:linear-gradient(90deg,rgba(255,184,108,.96),rgba(255,118,118,.92))}
+    .final-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}.final-main{display:grid;gap:18px;align-content:space-between;min-height:380px;padding:26px;border-radius:28px;border:1px solid rgba(146,240,215,.18);background:radial-gradient(circle at top right,rgba(146,240,215,.14),transparent 32%),linear-gradient(180deg,rgba(17,24,37,.92),rgba(8,12,18,.88))}
+    .ftag{display:inline-flex;gap:10px;align-items:center;padding:10px 14px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);color:var(--mint);font-size:.82rem;text-transform:uppercase;letter-spacing:.08em;width:fit-content}
+    .final-main h3{margin:0;font-size:clamp(2rem,4vw,4rem);line-height:.95;letter-spacing:-.05em;max-width:620px}.final-main p{margin:0;max-width:720px;color:var(--muted);font-size:1rem;line-height:1.75}
+    .watch{display:grid;gap:14px}.wcard{padding:18px;border-radius:22px;border:1px solid var(--line);background:rgba(255,255,255,.03)} .wlist{display:grid;gap:12px;margin-top:14px}
+    .witem{display:flex;justify-content:space-between;gap:18px;align-items:center;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06)} .witem:last-child{border-bottom:none}.witem h4{margin:0 0 4px;font-size:.98rem}.witem p{margin:0;color:var(--muted);font-size:.88rem;max-width:360px}.state{padding:8px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.08);color:var(--muted);font-size:.78rem;font-family:var(--mono);text-align:center}
+    .foot{margin-top:18px;color:var(--muted2);font-size:.84rem;line-height:1.7;position:relative;z-index:1}
+    .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}.reveal.in{opacity:1;transform:none}
+    @media (max-width:1280px){.shell{grid-template-columns:1fr}.sidebar{position:relative;height:auto}.hero-grid,.scenario-layout,.battlefield,.map,.final-grid{grid-template-columns:1fr}.health{grid-template-columns:repeat(3,minmax(0,1fr))}.insights{grid-template-columns:repeat(3,minmax(0,1fr))}.decisions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:900px){.briefs,.gauges,.grid2,.grid3,.grid4,.health,.tiles,.wargrid,.dkpis,.factgrid,.insights,.decisions,.stats2{grid-template-columns:1fr}.answer{grid-template-columns:1fr}.verdict{width:fit-content}.shell{width:min(100% - 20px,1440px)}.section{padding:22px}.hero h1{font-size:clamp(2.6rem,12vw,4.8rem)}.acontent .inner{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar reveal">
+      <div>
+        <div class="brand">
+          <div class="mark">DX</div>
+          <div><h1>Dubai Investment<br>Intelligence</h1><p>$200k decision dashboard</p></div>
+        </div>
+        <nav class="nav" id="nav">
+          <a class="active" href="#hero"><span>Verdict</span><small>01</small></a>
+          <a href="#truth"><span>Brutal Truth</span><small>02</small></a>
+          <a href="#health"><span>Market Health</span><small>03</small></a>
+          <a href="#warroom"><span>War Room</span><small>04</small></a>
+          <a href="#battlefield"><span>Area Battlefield</span><small>05</small></a>
+          <a href="#vision"><span>Vision 2040</span><small>06</small></a>
+          <a href="#opportunities"><span>Opportunities</span><small>07</small></a>
+          <a href="#risks"><span>Risks</span><small>08</small></a>
+          <a href="#decision"><span>Decision Matrix</span><small>09</small></a>
+          <a href="#final"><span>Final Call</span><small>10</small></a>
+        </nav>
+      </div>
+      <div class="sidebar-card">
+        <div class="l">Decision frame</div>
+        <div class="v">Watchlist</div>
+        <div class="s">Your budget is below the sweet spot. The real edge is patience or better structure, not forced deployment.</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="section hero reveal" id="hero">
+        <div class="hero-grid">
+          <div>
+            <div class="hero-top">
+              <span>Executive-grade intelligence layer</span>
+              <span>Dark-mode decision product</span>
+              <span>Question: should $200k go into Dubai now?</span>
+            </div>
+            <h1>Dubai is still investable.<br>Your budget tier is the problem.</h1>
+            <div class="answer">
+              <div class="verdict">Watchlist</div>
+              <div>
+                <h3>Immediate answer</h3>
+                <p>Do not force cash into compromised stock just because Dubai looks strong at the top of the market. For a <strong>$200,000</strong> buyer, the highest-quality answer is <strong>wait or use moderate leverage to reach real JVC</strong>, not “buy anything cheap.”</p>
+              </div>
+            </div>
+            <div class="briefs">
+              <div class="brief"><div class="k">Capital available</div><div class="v">AED 734k</div><div class="d">Roughly USD 200,000 at the peg.</div></div>
+              <div class="brief"><div class="k">Sweet spot</div><div class="v">AED 1.0m+</div><div class="d">Where the strongest JVC and Arjan trades begin.</div></div>
+              <div class="brief"><div class="k">Base call</div><div class="v">Late expansion</div><div class="d">City-level strength, but a far more selective market underneath.</div></div>
+            </div>
+          </div>
+          <div class="gauges" id="heroGauges"></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="truth">
+        <div class="head">
+          <div>
+            <div class="eyebrow">Section 02 · The brutal truth</div>
+            <h2>The attached memo is right on Dubai and wrong for your capital stack</h2>
+            <p class="lead">Most of the winning districts in the underlying analysis sit above your budget. The real issue is not whether Dubai works, but how much quality you lose when you stay cash-only at this ticket size.</p>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="panel">
+            <div class="panel-title"><h3>Capital gap</h3><div class="meta">Budget vs actual entry points</div></div>
+            <div class="big">AED 266k–316k short</div>
+            <p class="subtle">That is the minimum gap to reach standard Arjan or JVC stock. The gap to Creek Harbour, Dubai Hills, Business Bay, or Marina is much wider.</p>
+            <div class="stack" id="budgetBars"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title"><h3>What this budget really buys</h3><div class="meta">The compromise map</div></div>
+            <div class="stats2">
+              <div class="mini"><div class="k">Accessible now</div><div class="v">Dubai South</div><div class="d">Fits the cap, but remains speculative in a 3–5 year frame.</div></div>
+              <div class="mini"><div class="k">Best partial access</div><div class="v">JVC micro-units</div><div class="d">Only works with exceptional building-level selection.</div></div>
+              <div class="mini"><div class="k">Unavailable</div><div class="v">Creek · Hills · Marina</div><div class="d">The cleanest institutional districts sit outside the cap.</div></div>
+              <div class="mini"><div class="k">Structural issue</div><div class="v">Quality dilution</div><div class="d">You are pushed into weaker product, not simply cheaper product.</div></div>
+            </div>
+            <div class="chips">
+              <div class="chip">Budget fit: <strong>weak</strong></div>
+              <div class="chip">Cash-only path: <strong>compromised</strong></div>
+              <div class="chip">Leverage path: <strong>viable</strong></div>
+              <div class="chip">Prime access: <strong>no</strong></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="health">
+        <div class="head">
+          <div>
+            <div class="eyebrow">Section 03 · Market health</div>
+            <h2>Still strong at the city level, more selective underneath</h2>
+            <p class="lead">Dubai is not in a crisis. It is in a later-stage expansion where broad upside gives way to a more disciplined race between income depth, supply pressure, and balance-sheet quality.</p>
+          </div>
+        </div>
+        <div class="health" id="healthGrid"></div>
+      </section>
+
+      <section class="section reveal" id="warroom">
+        <div class="head">
+          <div>
+            <div class="eyebrow">Section 04 · Geopolitical war room</div>
+            <h2>Dubai benefits from instability until logistics and confidence actually break</h2>
+            <p class="lead">Hormuz is a live underwriting variable, not a headline decoration. The attached analysis implies that your budget tier feels that pressure sooner than prime ready stock.</p>
+          </div>
+          <div class="controls" id="scenarioControls"></div>
+        </div>
+        <div class="scenario-layout">
+          <div class="panel">
+            <div class="panel-title"><h3>Probability distribution</h3><div class="meta">Attached analysis</div></div>
+            <div class="probs" id="probBars"></div>
+            <div class="tiles" id="scenarioTiles"></div>
+          </div>
+          <div class="panel radar">
+            <div class="panel-title"><h3>Impact radar</h3><div class="meta" id="scenarioMeta">Prolonged tension</div></div>
+            <svg id="scenarioRadar" viewBox="0 0 360 360"></svg>
+            <div class="legend"><span><i style="background:var(--mint)"></i> Investor damage</span><span><i style="background:var(--blue)"></i> Resilience envelope</span></div>
+          </div>
+        </div>
+        <div class="wargrid">
+          <div class="panel">
+            <div class="panel-title"><h3>Risk matrix</h3><div class="meta">Likelihood vs damage</div></div>
+            <div class="heat">
+              <div class="heat-grid">
+                <div class="hl"></div><div class="hl">Contained</div><div class="hl">Meaningful</div><div class="hl">Severe</div><div class="hl">Systemic</div>
+                <div class="hl">Low</div>
+                <div class="hc low"><div class="r">Tourism wobble</div><div>Hotels and short lets soften first.</div></div>
+                <div class="hc med"><div class="r">Mortgage tightening</div><div>Approvals slow before rents do.</div></div>
+                <div class="hc med"><div class="r">Luxury pause</div><div>Discretionary buyers wait.</div></div>
+                <div class="hc high"><div class="r">Regional war</div><div>Low base-case, very high damage.</div></div>
+                <div class="hl">Medium</div>
+                <div class="hc med"><div class="r">Supply delays</div><div>Construction costs and handovers wobble.</div></div>
+                <div class="hc med"><div class="r">Off-plan sentiment hit</div><div>Launch appetite weakens.</div></div>
+                <div class="hc high"><div class="r">Airspace disruption</div><div>Travel-linked housing underperforms.</div></div>
+                <div class="hc high"><div class="r">Confidence shock</div><div>Outer-ring liquidity dries up first.</div></div>
+                <div class="hl">High</div>
+                <div class="hc med"><div class="r">Safe-haven inflows</div><div>Prime ready stock benefits.</div></div>
+                <div class="hc high"><div class="r">Budget-tier stress</div><div>Cheaper stock loses pricing power.</div></div>
+                <div class="hc high"><div class="r">Hormuz volatility</div><div>Shipping risk stays central.</div></div>
+                <div class="hc high"><div class="r">Selective repricing</div><div>Weak stock is punished first.</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title"><h3>Intelligence timeline</h3><div class="meta">What changed the underwriting</div></div>
+            <div class="timeline">
+              <div class="item"><div class="date">Mar 2026</div><div class="event">U.S. maritime advisory warns of high Iranian attack risk</div><p>Commercial vessels in the Gulf and Hormuz move into a materially higher-risk regime.</p></div>
+              <div class="item"><div class="date">May 2026</div><div class="event">UKMTO / JMIC rates Hormuz threat level critical</div><p>Reduced traffic and multiple incidents make logistics risk a real pricing input.</p></div>
+              <div class="item"><div class="date">Jun 2026</div><div class="event">Reuters reports renewed hostilities and fragile ceasefire</div><p>The market must now price duration, shipping continuity, and whether Dubai keeps its safe-haven premium.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="battlefield">
+        <div class="head">
+          <div>
+            <div class="eyebrow">Section 05 · Area battlefield</div>
+            <h2>The best market is not the same as the best market you can afford</h2>
+            <p class="lead">The cards below combine raw facts from the attached analysis with a derived score model so the trade-offs become visible rather than implied.</p>
+          </div>
+          <div class="area-controls" id="areaControls"></div>
+        </div>
+        <div class="battlefield">
+          <div class="alist" id="areaList"></div>
+          <div class="detail">
+            <div class="panel">
+              <div class="dhead">
+                <div>
+                  <div class="eyebrow" id="detailTag">Area focus</div>
+                  <h3 id="detailName">JVC</h3>
+                  <p class="dsummary" id="detailSummary"></p>
+                </div>
+                <div class="score"><strong id="detailScore">8.48</strong>/10</div>
+              </div>
+              <div class="dkpis" id="detailKpis"></div>
+              <div class="grid2" style="margin-top:18px">
+                <div class="panel" style="padding:16px">
+                  <div class="panel-title"><h3>Score breakdown</h3><div class="meta">Derived decision rails</div></div>
+                  <div class="rails" id="detailRails"></div>
+                </div>
+                <div class="panel radar" style="padding:16px">
+                  <div class="panel-title"><h3>Area radar</h3><div class="meta" id="areaMeta">JVC</div></div>
+                  <svg id="areaRadar" viewBox="0 0 360 360"></svg>
+                  <div class="legend"><span><i style="background:var(--blue)"></i> Relative strength</span><span><i style="background:var(--red)"></i> Supply / risk drag</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="factgrid" id="detailFacts"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="vision">
+        <div class="head">
+          <div>
+            <div class="eyebrow">Section 06 · Vision 2040</div>
+            <h2>Some districts have policy wind. Others are simply cheap.</h2>
+            <p class="lead">Your budget leaves very little room for buying “good enough” stock in places with no rerating narrative. This section isolates where the city’s long-term infrastructure story actually intersects with your opportunity set.</p>
+          </div>
+        </div>
+        <div class="map">
+          <svg viewBox="0 0 780 440" role="img" aria-label="Stylized corridor map">
+            <defs>
+              <linearGradient id="g1" x1="0%" x2="100%"><stop offset="0%" stop-color="#7c9cff"/><stop offset="50%" stop-color="#92f0d7"/><stop offset="100%" stop-color="#bea8ff"/></linearGradient>
+              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="10" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            </defs>
+            <rect x="0" y="0" width="780" height="440" rx="28" fill="rgba(8,12,18,.92)"/>
+            <g opacity=".24">
+              <path d="M40 100H740M40 180H740M40 260H740M40 340H740" stroke="rgba(255,255,255,.08)"/>
+              <path d="M120 40V400M250 40V400M390 40V400M530 40V400M660 40V400" stroke="rgba(255,255,255,.08)"/>
+            </g>
+            <path d="M90 320 C180 285,255 250,320 220 S490 150,670 95" stroke="url(#g1)" stroke-width="7" fill="none" filter="url(#glow)" opacity=".85"/>
+            <path d="M510 120 C565 130,620 140,690 152" stroke="#7c9cff" stroke-width="4" fill="none" opacity=".7" stroke-dasharray="8 8"/>
+            <g font-family="Inter,system-ui,sans-serif">
+              <g transform="translate(86 320)">
+                <circle r="10" fill="#92f0d7"/><circle r="18" fill="none" stroke="rgba(146,240,215,.24)"/>
+                <text x="-12" y="-24" fill="#f4f7fb" font-size="14" font-weight="700">DWC / Dubai South</text>
+                <text x="-12" y="-8" fill="#94a2b8" font-size="12">High Vision fit · High execution risk</text>
+              </g>
+              <g transform="translate(290 230)">
+                <circle r="8" fill="#ffcf70"/><circle r="16" fill="none" stroke="rgba(255,207,112,.24)"/>
+                <text x="-26" y="-24" fill="#f4f7fb" font-size="14" font-weight="700">JVC</text>
+                <text x="-26" y="-8" fill="#94a2b8" font-size="12">Demand depth, not a flagship corridor</text>
+              </g>
+              <g transform="translate(372 198)">
+                <circle r="8" fill="#ff9c8b"/><circle r="16" fill="none" stroke="rgba(255,156,139,.22)"/>
+                <text x="-52" y="-24" fill="#f4f7fb" font-size="14" font-weight="700">Motor City cluster</text>
+                <text x="-52" y="-8" fill="#94a2b8" font-size="12">Scarcity signal, thin coverage</text>
+              </g>
+              <g transform="translate(545 132)">
+                <circle r="9" fill="#7c9cff"/><circle r="18" fill="none" stroke="rgba(124,156,255,.24)"/>
+                <text x="-28" y="-24" fill="#f4f7fb" font-size="14" font-weight="700">Creek / Blue Line</text>
+                <text x="-28" y="-8" fill="#94a2b8" font-size="12">Future transit-led premium zone</text>
+              </g>
+              <g transform="translate(690 152)">
+                <circle r="8" fill="#bea8ff"/><circle r="16" fill="none" stroke="rgba(190,168,255,.24)"/>
+                <text x="-64" y="34" fill="#f4f7fb" font-size="14" font-weight="700">International City corridor</text>
+                <text x="-64" y="50" fill="#94a2b8" font-size="12">Accessible, but lower-conviction rerating</text>
+              </g>
+            </g>
+          </svg>
+          <div class="cstack">
+            <div class="ccard"><h3>Strongest policy alignment</h3><p class="subtle">Dubai South has the clearest strategic tailwind because the DWC airport expansion is real, funded, and directly tied to the long-term urban-growth map.</p></div>
+            <div class="ccard"><h3>Highest practical alignment</h3><p class="subtle">JVC is not the cleanest Vision 2040 story, but it still wins the practical race because liquidity, rental depth, and yield visibility are already present.</p></div>
+            <div class="ccard"><h3>Where affordability can mislead</h3><p class="subtle">Discovery Gardens and International City can look compelling on price alone. Without a strong corridor catalyst, they behave more like affordability trades than conviction-led rerating plays.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="opportunities">
+        <div class="head">
+          <div>
+            <div class="eyebrow">Section 07 · Hidden opportunities</div>
+            <h2>The edge is in structure, not in fantasy</h2>
+            <p class="lead">This budget still has angle, but only if the investor treats the market like a procurement problem rather than a lifestyle story.</p>
+          </div>
+        </div>
+        <div class="insights">
+          <div class="icard"><div class="iscore">Insight score · 8.2</div><h3>Cash buyer advantage</h3><p class="subtle">Ready sellers facing service-charge drag or weak foot traffic are more vulnerable to a clean cash close than most retail buyers realize.</p></div>
+          <div class="icard"><div class="iscore">Insight score · 8.8</div><h3>Mortgage strategy</h3><p class="subtle">The cleanest way to reach the memo’s true buy zone is not to lower quality, but to add measured leverage and buy standard JVC properly.</p></div>
+          <div class="icard"><div class="iscore">Insight score · 7.4</div><h3>JVC micro-units</h3><p class="subtle">Micro stock is not the best JVC thesis, but it is the only way a cash buyer can partially access the deepest one-bed rental market.</p></div>
+          <div class="icard"><div class="iscore">Insight score · 5.8</div><h3>Motor City scarcity</h3><p class="subtle">The 102.6% spike looks dramatic, but it signals illiquidity and scarcity more than broad institutional opportunity.</p></div>
+          <div class="icard"><div class="iscore">Insight score · 7.0</div><h3>Dubai South asymmetry</h3><p class="subtle">In a 7–10 year frame, the airport corridor could be the most asymmetric accessible bet. In a 3–5 year frame, it remains speculative.</p></div>
+        </div>
+      </section>
+
+      <section class="section reveal" id="risks">
+        <div class="head">
+          <div>
+            <div class="eyebrow">Section 08 · Hidden risks</div>
+            <h2>Red-team the thesis before the market does it for you</h2>
+            <p class="lead">The easiest mistake in Dubai is to buy the story and ignore the frictions below it. These are the failure modes most likely to hit a $200k investor first.</p>
+          </div>
+        </div>
+        <div class="accordion" id="riskAccordion"></div>
+      </section>
+
+      <section class="section reveal" id="decision">
+        <div class="head">
+          <div>
+            <div class="eyebrow">Section 09 · What I would do</div>
+            <h2>The investment committee matrix</h2>
+            <p class="lead">This is not a lifestyle call. It is a ranking of risk-adjusted choices for a buyer who wants the cleanest possible way into Dubai from an imperfect starting capital stack.</p>
+          </div>
+        </div>
+        <div class="decisions" id="decisionGrid"></div>
+      </section>
+
+      <section class="section reveal" id="final">
+        <div class="head">
+          <div>
+            <div class="eyebrow">Section 10 · Final recommendation</div>
+            <h2>The answer is not “no Dubai.” It is “do not buy the wrong Dubai.”</h2>
+            <p class="lead">Your capital is enough to get involved, but not enough to ignore quality discipline. The best move is to preserve optionality until you can either buy proper JVC or wait for a better entry into the budget tier.</p>
+          </div>
+        </div>
+        <div class="final-grid">
+          <div class="final-main">
+            <div><div class="ftag">Recommended action · Wait or structure into real JVC</div><h3>Watchlist now.<br>Build optionality.<br>Buy only if the compromise is worth it.</h3></div>
+            <p>For a cash buyer capped at AED 734k, the most disciplined path is to avoid generic low-tier stock and either <strong>wait 6–12 months</strong> for better price discovery or <strong>use moderate leverage</strong> to access the part of JVC that the underlying research actually endorses. If you must deploy now, keep it to selective ready micro-stock with fully verified service charges and modest return expectations.</p>
+          </div>
+          <div class="watch">
+            <div class="wcard">
+              <div class="panel-title"><h3>Watch metrics</h3><div class="meta">Do not buy blind</div></div>
+              <div class="wlist">
+                <div class="witem"><div><h4>Hormuz traffic normalization</h4><p>If shipping stabilizes, Dubai’s safe-haven premium improves and risk premia compress.</p></div><div class="state">Macro</div></div>
+                <div class="witem"><div><h4>JVC asking-price reset</h4><p>The cleanest use of patience is waiting for weaker sellers or more supply to narrow the gap.</p></div><div class="state">Core</div></div>
+                <div class="witem"><div><h4>Service-charge verification</h4><p>At this budget, one weak building can erase the whole yield story faster than any macro event.</p></div><div class="state">Critical</div></div>
+                <div class="witem"><div><h4>DWC execution tempo</h4><p>Dubai South only works if the infrastructure clock keeps moving and residential depth follows it.</p></div><div class="state">Optionality</div></div>
+              </div>
+            </div>
+            <div class="wcard">
+              <div class="panel-title"><h3>Next steps</h3><div class="meta">Institutional workflow</div></div>
+              <div class="chips" style="margin-top:0">
+                <div class="chip">1. Pull live ready listings under AED 780k</div>
+                <div class="chip">2. Filter out weak buildings by service charges</div>
+                <div class="chip">3. Underwrite leverage to reach real JVC</div>
+                <div class="chip">4. Re-check Gulf risk in 60–90 days</div>
+                <div class="chip">5. Only buy when the quality compromise is explicit</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="foot">Data transformed from the attached Dubai analysis and budget-adjusted companion note. Core inputs used here include AED 761bn of 2024 transactions, the AED 734k budget, JVC’s 8.48 score and 8.37% gross yield, Arjan’s 8.13 score and 8.84% gross yield, Dubai South’s ~2,113 one-bed sales at ~AED 1,377 psf, and the 30% / 50% / 20% geopolitical scenario split.</div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const data={
+      hero:[
+        {label:'Confidence Score',value:76,tone:'var(--mint)',note:'Strong confidence in the diagnosis, lower confidence in exact timing.'},
+        {label:'Investment Score',value:58,tone:'var(--blue)',note:'Dubai works. This specific budget tier does not naturally fit the best trade.'},
+        {label:'Budget Fit Score',value:33,tone:'var(--gold)',note:'The budget sits below the main memo’s sweet spot for quality one-bed stock.'},
+        {label:'Risk Score',value:74,tone:'var(--red)',note:'Budget-tier assets face supply, liquidity, and geopolitical sensitivity.'},
+        {label:'Opportunity Score',value:61,tone:'var(--mint)',note:'Real opportunity exists if the investor is selective or uses structure.'},
+        {label:'Geopolitical Risk Meter',value:78,tone:'var(--red)',note:'Hormuz, shipping, aviation, and confidence remain live underwriting variables.'}
+      ],
+      bars:[
+        {label:'Your capital',value:734000,max:2000000,text:'AED 734k',cls:''},
+        {label:'Arjan standard entry',value:1000000,max:2000000,text:'AED 1.00m',cls:'warn'},
+        {label:'JVC average ticket',value:1050000,max:2000000,text:'AED 1.05m',cls:'warn'},
+        {label:'Dubai Hills entry',value:1650000,max:2000000,text:'AED 1.65m',cls:'warn'},
+        {label:'Creek Harbour average',value:1920000,max:2000000,text:'AED 1.92m',cls:'warn'}
+      ],
+      health:[
+        {title:'Market Cycle',signal:'Late Expansion',cls:'warn',value:'Selective upside',detail:'The broad rerating phase is behind the market. The next leg is more asset-specific than citywide.',spark:'12,22 60,15 108,18 156,28 204,38 252,44 300,47 348,52'},
+        {title:'Transaction Engine',signal:'Strong',cls:'',value:'AED 761bn',detail:'2024 transactions remained enormous, proving city-level liquidity is still intact.',spark:'12,50 60,48 108,42 156,38 204,28 252,22 300,16 348,12'},
+        {title:'Supply Risk',signal:'Elevated',cls:'danger',value:'61,580 completions',detail:'Large delivery expectations and JVC’s 12% pipeline share keep future absorption under pressure.',spark:'12,44 60,40 108,34 156,26 204,18 252,16 300,14 348,12'},
+        {title:'Rental Market',signal:'Resilient',cls:'',value:'~90% occupancy',detail:'The rent story still works, but the best support sits in deeper one-bed communities like JVC.',spark:'12,48 60,42 108,38 156,32 204,28 252,24 300,20 348,18'},
+        {title:'Demand Strength',signal:'Selective',cls:'warn',value:'Income wins',detail:'Investors are now paid more for liquidity and yield than for pure narrative.',spark:'12,34 60,31 108,28 156,24 204,26 252,29 300,27 348,24'},
+        {title:'Capital Mix',signal:'Off-plan heavy',cls:'warn',value:'56% off-plan',detail:'For this budget, the implication is clear: do not fight in the off-plan arena.',spark:'12,28 60,30 108,34 156,38 204,41 252,44 300,48 348,52'}
+      ],
+      scenarios:{
+        deescalation:{name:'De-escalation',prob:30,price:'+6% to +9% p.a.',rent:'+4% to +6% p.a.',volume:'+8% to +15%',foreign:'Broad inflows',confidence:'High',radar:[32,36,28,74,76],labels:['Shipping risk','Investor caution','Tourism drag','Safe-haven inflows','Property resilience']},
+        tension:{name:'Prolonged tension',prob:50,price:'+2% to +5% p.a.',rent:'+1% to +4% p.a.',volume:'-5% to +3%',foreign:'Selective safe-haven inflows',confidence:'Medium',radar:[74,68,61,52,64],labels:['Shipping risk','Investor caution','Tourism drag','Safe-haven inflows','Property resilience']},
+        conflict:{name:'Major conflict',prob:20,price:'-15% to -30% year one',rent:'-8% to +2%',volume:'-30% to -50%',foreign:'Luxury defensive, mass-market weak',confidence:'Low',radar:[92,86,88,24,34],labels:['Shipping risk','Investor caution','Tourism drag','Safe-haven inflows','Property resilience']}
+      },
+      areas:[
+        {id:'jvc',name:'JVC',tag:'Cash-flow leader',score:8.48,price:'AED 1.05m avg ticket',budget:'Micro only',summary:'Best market overall in the attached analysis, but standard stock sits above the cash budget. The budget only reaches the lower end of a very uneven market.',kpis:[['Gross yield','8.37%'],['Sales depth','4,343 sales'],['Rental depth','27,811 active rentals'],['One-bed stock','47,409 units']],rails:{investment:85,capital:68,liquidity:92,vision:52,budget:44,confidence:72,supply:70},facts:[['Why it wins','Deepest affordable one-bed liquidity and the cleanest income signal in the memo set.'],['Why it fails','Micro-units sit in the weakest slice of an oversupplied and heterogeneous district.'],['Investor posture','Only buy if service charges, management quality, and exact location all check out.']],radar:[85,68,92,52,44,72]},
+        {id:'arjan',name:'Arjan',tag:'Value and yield',score:8.13,price:'AED 1.00m avg ticket',budget:'Mostly no',summary:'Arjan screens as one of the strongest value-and-yield plays in the attached memo, but standard one-bedroom entry still sits above the budget.',kpis:[['Gross yield','8.84%'],['Sales depth','1,614 sales'],['Rental depth','11,160 active rentals'],['One-bed stock','12,588 units']],rails:{investment:81,capital:63,liquidity:65,vision:44,budget:36,confidence:67,supply:62},facts:[['Why it wins','Highest headline gross yield among the top-ranked districts in the memo.'],['Why it fails','Still mostly above the cap, and building-quality dispersion matters a lot.'],['Investor posture','Good value market, but not an easy cash-buyer solution at this ticket size.']],radar:[81,63,65,44,36,67]},
+        {id:'dubai-south',name:'Dubai South',tag:'Early-cycle optionality',score:6.35,price:'AED 600k–800k entry',budget:'Yes',summary:'Dubai South genuinely fits the budget and has a real infrastructure thesis, but the analysis treats it as medium-high risk with longer-dated optionality rather than a clean 3–5 year winner.',kpis:[['1-bed activity','2,113 sales'],['Pricing','~AED 1,377 psf'],['Catalyst','AED 128bn DWC'],['Time horizon','7–10 year story']],rails:{investment:64,capital:74,liquidity:58,vision:90,budget:96,confidence:49,supply:74},facts:[['Why it wins','Best direct Vision 2040 alignment in the accessible budget tier.'],['Why it fails','Rental depth and short-horizon confidence are still weaker than JVC.'],['Investor posture','Only compelling if you accept a longer hold and more execution risk.']],radar:[64,74,58,90,96,49]},
+        {id:'motor-city',name:'Motor City',tag:'Scarcity signal',score:5.90,price:'Case-by-case entry',budget:'Sometimes',summary:'Motor City is not a top recommendation in the attached memo. Its role is as a hidden edge-case: a dramatic price spike on thin volume that may hide isolated building opportunities.',kpis:[['12m move','+102.6%'],['Coverage','Thin volume'],['Signal type','Scarcity'],['Decision status','Edge case only']],rails:{investment:59,capital:61,liquidity:42,vision:36,budget:52,confidence:38,supply:46},facts:[['Why it wins','Potentially better liveability and stock quality than some cheaper outer-ring locations.'],['Why it fails','The price surge is not enough to support a broad investment case.'],['Investor posture','Investigate only if a specific unit stands out materially on pricing and charges.']],radar:[59,61,42,36,52,38]},
+        {id:'discovery-gardens',name:'Discovery Gardens',tag:'Affordable income trade',score:5.12,price:'AED 400k–650k entry',budget:'Yes',summary:'Discovery Gardens is accessible, but the attached analysis treats it more as an affordability zone than as a strong medium-term rerating thesis.',kpis:[['Entry band','AED 400k–650k'],['Narrative','Income-led'],['Growth thesis','Limited'],['Coverage','Low']],rails:{investment:51,capital:34,liquidity:40,vision:30,budget:100,confidence:31,supply:52},facts:[['Why it wins','Accessible pricing and a simpler entry path for a cash buyer.'],['Why it fails','The analysis does not rank it as a high-conviction appreciation story.'],['Investor posture','Treat as an affordability trade, not as premium intelligence.']],radar:[51,34,40,30,100,31]},
+        {id:'international-city',name:'International City',tag:'Outer value zone',score:4.86,price:'AED 400k–650k entry',budget:'Yes',summary:'International City sits firmly in the below-the-sweet-spot segment of the attached analysis. It is investable only if low entry price matters more than district quality or exit appeal.',kpis:[['Entry band','AED 400k–650k'],['Thesis type','Value zone'],['Budget fit','High'],['Coverage','Low']],rails:{investment:49,capital:29,liquidity:38,vision:42,budget:100,confidence:29,supply:54},facts:[['Why it wins','Pure affordability and a straightforward cash path.'],['Why it fails','Weak institutional narrative and thinner exit quality than the preferred districts.'],['Investor posture','Only acceptable if the investment objective is entry price first, quality second.']],radar:[49,29,38,42,100,29]}
+      ],
+      risks:[
+        {title:'Budget misalignment',severity:94,meta:'High severity · High confidence',copy:'This is the most important risk because it shapes every other one. Your budget does not access the preferred buy zone, which means you are choosing from compromised stock rather than simply cheaper stock.'},
+        {title:'Hormuz escalation',severity:88,meta:'High severity · Medium path confidence',copy:'The current state of regional risk is confirmed. The uncertainty is not whether the risk exists, but how long it lasts and whether it becomes a real logistics and confidence shock.'},
+        {title:'Supply overhang',severity:82,meta:'High severity · High confidence',copy:'Accessible submarkets like lower-tier JVC or outer-value zones are more vulnerable to new completions and weaker buyer pools than prime ready stock.'},
+        {title:'Service-charge drag',severity:76,meta:'Medium severity · High confidence',copy:'Gross yields flatter cheap stock. Building-level service charges and weak management can erase the entire high-yield story for a budget buyer.'},
+        {title:'Exit liquidity',severity:72,meta:'Medium severity · Medium confidence',copy:'Small, low-ticket, below-average-specification units are the assets that become hard to sell when sentiment softens.'},
+        {title:'Developer quality variance',severity:67,meta:'Medium severity · Medium confidence',copy:'At the bottom of the price band, the developer and building matter more than the area label. The execution risk is building-specific.'}
+      ],
+      decisions:[
+        {rank:1,title:'Wait 6–12 Months',tag:'Preserve optionality',copy:'Best low-regret path if there is no urgency. It buys time for geopolitics, supply, and JVC pricing to reset.',bars:[['Expected return',66],['Risk',24,'risk'],['Liquidity',96],['Complexity',18],['Confidence',78]]},
+        {rank:2,title:'Use Moderate Leverage',tag:'Reach real JVC',copy:'The cleanest way to align your capital with the actual winning thesis. Better district quality, but more financial complexity.',bars:[['Expected return',79],['Risk',58,'risk'],['Liquidity',68],['Complexity',74],['Confidence',68]]},
+        {rank:3,title:'Buy JVC Cash',tag:'Micro-unit only',copy:'Works only if the building is unusually strong. This is a yield-first compromise, not the main institutional thesis.',bars:[['Expected return',58],['Risk',64,'risk'],['Liquidity',46],['Complexity',44],['Confidence',55]]},
+        {rank:4,title:'Skip Dubai',tag:'No exposure',copy:'Cleanest operational choice, but it abandons a structurally strong market because the capital stack is imperfect today.',bars:[['Expected return',22],['Risk',18,'risk'],['Liquidity',100],['Complexity',10],['Confidence',42]]}
+      ]
+    };
+    let currentScenario='tension',currentArea='jvc';
+    const order=['deescalation','tension','conflict'];
+
+    function cxy(cx,cy,r,a){const rad=(a-90)*Math.PI/180;return{x:cx+r*Math.cos(rad),y:cy+r*Math.sin(rad)}}
+    function poly(values,r,cx,cy){const step=360/values.length;return values.map((v,i)=>{const p=cxy(cx,cy,r*(v/100),i*step);return`${i?'L':'M'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`}).join(' ')+' Z'}
+    function renderRadar(elId,values,labels,metaId,text,accent,baseVals){
+      const svg=document.getElementById(elId); if(metaId) document.getElementById(metaId).textContent=text; const cx=180,cy=180,r=118,step=360/labels.length;
+      let html=''; [25,50,75,100].forEach(l=>{const pts=labels.map((_,i)=>{const p=cxy(cx,cy,r*(l/100),i*step);return`${p.x},${p.y}`}).join(' '); html+=`<polygon points="${pts}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1"/>`;});
+      labels.forEach((lab,i)=>{const end=cxy(cx,cy,r,i*step), txt=cxy(cx,cy,r+28,i*step); html+=`<line x1="${cx}" y1="${cy}" x2="${end.x}" y2="${end.y}" stroke="rgba(255,255,255,.08)" stroke-width="1"/>`; html+=`<text x="${txt.x}" y="${txt.y}" fill="#94a2b8" font-size="11" text-anchor="middle" dominant-baseline="middle">${lab}</text>`;});
+      const base=baseVals||new Array(values.length).fill(72); html+=`<path d="${poly(base,r,cx,cy)}" fill="rgba(124,156,255,.08)" stroke="rgba(124,156,255,.42)" stroke-width="1.5"/>`;
+      html+=`<path d="${poly(values,r,cx,cy)}" fill="${accent.fill}" stroke="${accent.stroke}" stroke-width="2.5"/>`;
+      values.forEach((v,i)=>{const p=cxy(cx,cy,r*(v/100),i*step); html+=`<circle cx="${p.x}" cy="${p.y}" r="4.5" fill="${accent.stroke}" stroke="#05070b" stroke-width="2"/>`;});
+      svg.innerHTML=html;
+    }
+    function hero(){const wrap=document.getElementById('heroGauges'); wrap.innerHTML=''; data.hero.forEach(d=>{const card=document.createElement('div'); card.className='gauge-card reveal'; card.innerHTML=`<div class="t">${d.label}</div><div class="ring" style="--value:${d.value};--tone:${d.tone}"><div class="center"><div><div class="n" data-counter="${d.value}">0</div><div class="u">/100</div></div></div></div><p>${d.note}</p>`; wrap.appendChild(card);});}
+    function budget(){const wrap=document.getElementById('budgetBars'); wrap.innerHTML=''; data.bars.forEach(b=>{const pct=Math.min(b.value/b.max*100,100); const row=document.createElement('div'); row.className='barrow'; row.innerHTML=`<div class="barhead"><strong>${b.label}</strong><span>${b.text}</span></div><div class="track ${b.cls}"><span style="width:${pct}%"></span></div>`; wrap.appendChild(row);});}
+    function market(){const wrap=document.getElementById('healthGrid'); wrap.innerHTML=''; data.health.forEach(h=>{const card=document.createElement('div'); card.className='hcard reveal'; card.innerHTML=`<div class="hrow"><h3>${h.title}</h3><div class="signal ${h.cls}">${h.signal}</div></div><div class="big" style="font-size:1.5rem">${h.value}</div><svg class="spark" viewBox="0 0 360 56" preserveAspectRatio="none"><line x1="0" y1="52" x2="360" y2="52"></line><path class="base" d="M 12 48 L 348 48"></path><path class="line" d="M ${h.spark}"></path></svg><div class="subtle">${h.detail}</div>`; wrap.appendChild(card);});}
+    function scenarioControls(){const wrap=document.getElementById('scenarioControls'); wrap.innerHTML=''; order.forEach(k=>{const b=document.createElement('button'); b.className=`seg ${k===currentScenario?'active':''}`; b.textContent=data.scenarios[k].name; b.onclick=()=>{currentScenario=k;scenarioControls();scenarioPanel();}; wrap.appendChild(b);});}
+    function scenarioPanel(){
+      const pWrap=document.getElementById('probBars'); pWrap.innerHTML=''; order.forEach(k=>{const s=data.scenarios[k]; const row=document.createElement('div'); row.className='barrow'; row.innerHTML=`<div class="plabel"><strong>${s.name}</strong><span>${s.prob}%</span></div><div class="ptrack"><span style="width:${s.prob}%"></span></div>`; pWrap.appendChild(row);});
+      const s=data.scenarios[currentScenario]; document.getElementById('scenarioTiles').innerHTML=`<div class="tile"><div class="l">Price growth</div><div class="v">${s.price}</div></div><div class="tile"><div class="l">Rental growth</div><div class="v">${s.rent}</div></div><div class="tile"><div class="l">Transaction volume</div><div class="v">${s.volume}</div></div><div class="tile"><div class="l">Foreign demand</div><div class="v">${s.foreign}</div></div><div class="tile"><div class="l">Confidence</div><div class="v">${s.confidence}</div></div><div class="tile"><div class="l">Read-through</div><div class="v">${s.name==='Prolonged tension'?'Base case for a selective market':'Scenario framing for position sizing'}</div></div>`;
+      renderRadar('scenarioRadar',s.radar,s.labels,'scenarioMeta',s.name,{fill:'rgba(146,240,215,.22)',stroke:'#92f0d7'});
+    }
+    function areaControls(){const wrap=document.getElementById('areaControls'); wrap.innerHTML=''; data.areas.forEach(a=>{const b=document.createElement('button'); b.className=`seg ${a.id===currentArea?'active':''}`; b.textContent=a.name; b.onclick=()=>{currentArea=a.id;areaControls();areaList();areaDetail();}; wrap.appendChild(b);});}
+    function areaList(){const wrap=document.getElementById('areaList'); wrap.innerHTML=''; data.areas.forEach(a=>{const card=document.createElement('div'); card.className=`acard ${a.id===currentArea?'active':''}`; card.onclick=()=>{currentArea=a.id;areaControls();areaList();areaDetail();}; card.innerHTML=`<div class="arow"><h3 class="aname">${a.name}</h3><div class="atag">${a.tag}</div></div><div class="ameta"><span>${a.price}</span><span>Budget: ${a.budget}</span></div><div class="subtle" style="margin-bottom:10px">${a.summary}</div><div class="score"><strong>${a.score.toFixed(2)}</strong>/10</div>`; wrap.appendChild(card);});}
+    function areaDetail(){const a=data.areas.find(x=>x.id===currentArea); document.getElementById('detailTag').textContent=a.tag; document.getElementById('detailName').textContent=a.name; document.getElementById('detailSummary').textContent=a.summary; document.getElementById('detailScore').textContent=a.score.toFixed(2);
+      document.getElementById('detailKpis').innerHTML=a.kpis.map(([l,v])=>`<div class="mini"><div class="k">${l}</div><div class="v">${v}</div></div>`).join('');
+      const rails=document.getElementById('detailRails'); rails.innerHTML='';
+      const labels=[['Investment strength','investment',false],['Capital appreciation','capital',false],['Liquidity','liquidity',false],['Vision 2040 fit','vision',false],['Budget accessibility','budget',false],['Confidence','confidence',false],['Supply / risk drag','supply',true]];
+      labels.forEach(([name,key,risk])=>{const row=document.createElement('div'); row.className='rail'; row.innerHTML=`<div class="rhead"><strong>${name}</strong><span>${a.rails[key]}/100</span></div><div class="rtrack ${risk?'risk':''}"><span style="width:${a.rails[key]}%"></span></div>`; rails.appendChild(row);});
+      document.getElementById('detailFacts').innerHTML=a.facts.map(([l,v])=>`<div class="fact"><div class="l">${l}</div><div class="v">${v}</div></div>`).join('');
+      renderRadar('areaRadar',a.radar,['Investment','Capital','Liquidity','Vision','Budget','Confidence'],'areaMeta',a.name,{fill:'rgba(124,156,255,.18)',stroke:'#7c9cff'},[70,70,70,70,70,70]);
+    }
+    function riskAccordion(){const wrap=document.getElementById('riskAccordion'); wrap.innerHTML=''; data.risks.forEach((r,i)=>{const box=document.createElement('div'); box.className='acc'; box.innerHTML=`<button aria-expanded="${i===0?'true':'false'}"><h3>${r.title}</h3><span>${r.meta}</span></button><div class="acontent" style="max-height:${i===0?'240px':'0'}"><div class="inner"><div class="severity" style="--value:${r.severity}"><div class="num">${r.severity}</div></div><div class="subtle">${r.copy}</div></div></div>`; const btn=box.querySelector('button'); const content=box.querySelector('.acontent'); btn.onclick=()=>{const open=btn.getAttribute('aria-expanded')==='true'; btn.setAttribute('aria-expanded',String(!open)); content.style.maxHeight=open?'0':content.scrollHeight+'px';}; wrap.appendChild(box);});}
+    function decisions(){const wrap=document.getElementById('decisionGrid'); wrap.innerHTML=''; data.decisions.forEach(d=>{const card=document.createElement('div'); card.className=`dcard ${d.rank===1?'top':''}`; card.innerHTML=`<div class="rank">${d.rank}</div><div><div class="atag" style="display:inline-flex">${d.tag}</div><h3 style="margin-top:10px">${d.title}</h3></div><p>${d.copy}</p><div class="dstats">${d.bars.map(([l,v,risk])=>`<div class="dstat"><div class="h"><span>${l}</span><strong>${v}/100</strong></div><div class="dbar ${risk||''}"><span style="width:${v}%"></span></div></div>`).join('')}</div>`; wrap.appendChild(card);});}
+    function counters(){document.querySelectorAll('[data-counter]').forEach(el=>{const target=+el.dataset.counter; let start=0; const t0=performance.now(), dur=1200; const step=now=>{const p=Math.min((now-t0)/dur,1), e=1-Math.pow(1-p,3); el.textContent=Math.round(start+(target-start)*e); if(p<1) requestAnimationFrame(step)}; requestAnimationFrame(step);});}
+    function reveals(){const io=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')}),{threshold:.12}); document.querySelectorAll('.reveal').forEach(el=>io.observe(el));}
+    function navSpy(){const links=[...document.querySelectorAll('#nav a')]; const secs=links.map(l=>document.querySelector(l.getAttribute('href'))); const onScroll=()=>{let idx=0; secs.forEach((s,i)=>{if(s.getBoundingClientRect().top<window.innerHeight*.32) idx=i;}); links.forEach((l,i)=>l.classList.toggle('active',i===idx));}; window.addEventListener('scroll',onScroll,{passive:true}); onScroll();}
+    hero(); budget(); market(); scenarioControls(); scenarioPanel(); areaControls(); areaList(); areaDetail(); riskAccordion(); decisions(); reveals(); navSpy(); setTimeout(counters,250);
+  </script>
+</body>
+</html>

@@ -1,0 +1,1601 @@
+openapi: 3.1.0
+info:
+  title: Atlas REI MVP API
+  version: 1.0.0
+  summary: MVP API for the Atlas REI real estate investment operating system
+  description: >
+    REST API for workspace management, investor profiles, underwriting engine,
+    committee evaluation, portfolio tracking, and documents.
+servers:
+  - url: /api/v1
+    description: Dev Proxy Prefix
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  userId:
+                    type: string
+                    format: uuid
+                  organizationId:
+                    type: string
+                    format: uuid
+                  workspaceId:
+                    type: string
+                    format: uuid
+                  propertyId:
+                    type: string
+                    nullable: true
+
+  /auth/login:
+    post:
+      summary: Login to get access token
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      email:
+                        type: string
+                      fullName:
+                        type: string
+                      memberships:
+                        type: array
+                        items:
+                          type: object
+                      defaultPropertyId:
+                        type: string
+                        nullable: true
+
+  /auth/logout:
+    post:
+      summary: Logout user
+      tags:
+        - Auth
+      responses:
+        "201":
+          description: Logout successful
+
+  /me:
+    get:
+      summary: Get current authenticated user
+      tags:
+        - Auth
+      responses:
+        "200":
+          description: Active user profile info
+
+  /workspaces:
+    get:
+      summary: List all workspaces the user belongs to
+      tags:
+        - Workspaces
+      responses:
+        "200":
+          description: List of workspaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Workspace"
+    post:
+      summary: Create a new workspace
+      tags:
+        - Workspaces
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkspaceRequest"
+      responses:
+        "201":
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+
+  /workspaces/{workspaceId}/profiles:
+    get:
+      summary: List investor profiles in workspace
+      tags:
+        - Investor Profiles
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InvestorProfile"
+    post:
+      summary: Create a new investor profile
+      tags:
+        - Investor Profiles
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvestorProfileRequest"
+      responses:
+        "201":
+          description: Profile created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvestorProfile"
+
+  /workspaces/{workspaceId}/profiles/{profileId}:
+    put:
+      summary: Update an existing investor profile
+      tags:
+        - Investor Profiles
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvestorProfileRequest"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvestorProfile"
+
+  /workspaces/{workspaceId}/underwrite:
+    post:
+      summary: Calculate underwriting metrics and save run to workspace
+      tags:
+        - Underwriting
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnderwritePropertyInput"
+      responses:
+        "201":
+          description: Underwriting result metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  countryCode:
+                    type: string
+                  currency:
+                    type: string
+                  purchasePrice:
+                    type: number
+                  totalAcquisitionCosts:
+                    type: number
+                  totalCapitalRequired:
+                    type: number
+                  ongoingCosts:
+                    type: object
+                  metrics:
+                    type: object
+
+  /workspaces/{workspaceId}/committee/evaluate:
+    post:
+      summary: Run AI Committee Evaluation on an Underwrite Run
+      tags:
+        - Committee
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommitteeEvaluateRequest"
+      responses:
+        "201":
+          description: Committee decision created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvestmentDecision"
+
+  /workspaces/{workspaceId}/committee/runs/{runId}:
+    get:
+      summary: Get AI Committee verdict by underwrite run ID or decision ID
+      tags:
+        - Committee
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Committee decision detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvestmentDecision"
+
+  /workspaces/{workspaceId}/deal-finder/search:
+    post:
+      summary: Rank investment opportunities using target investor profile
+      tags:
+        - Deal Finder
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                investorProfileId:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Ranked list of matched properties
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+
+  /workspaces/{workspaceId}/shortlists:
+    get:
+      summary: Get watchlists/shortlists for workspace
+      tags:
+        - Shortlists
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of shortlists
+    post:
+      summary: Create a new shortlist
+      tags:
+        - Shortlists
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShortlistRequest"
+      responses:
+        "201":
+          description: Shortlist created
+
+  /workspaces/{workspaceId}/shortlists/{shortlistId}/items:
+    post:
+      summary: Add an item to a shortlist
+      tags:
+        - Shortlists
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: shortlistId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddShortlistItemRequest"
+      responses:
+        "201":
+          description: Item added
+
+  /workspaces/{workspaceId}/shortlists/{shortlistId}/items/{itemId}:
+    delete:
+      summary: Remove an item from a shortlist
+      tags:
+        - Shortlists
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: shortlistId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Item removed
+
+  /workspaces/{workspaceId}/portfolios:
+    get:
+      summary: Get portfolios for workspace
+      tags:
+        - Portfolios
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of portfolios
+    post:
+      summary: Create a new portfolio
+      tags:
+        - Portfolios
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePortfolioRequest"
+      responses:
+        "201":
+          description: Portfolio created
+
+  /workspaces/{workspaceId}/portfolios/{portfolioId}/positions:
+    get:
+      summary: List positions in a portfolio
+      tags:
+        - Portfolios
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of portfolio positions
+    post:
+      summary: Add a position to a portfolio
+      tags:
+        - Portfolios
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: portfolioId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddPortfolioPositionRequest"
+      responses:
+        "201":
+          description: Position added
+
+  /workspaces/{workspaceId}/documents:
+    get:
+      summary: List uploaded documents in workspace
+      tags:
+        - Documents
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Ingested documents list
+
+  /workspaces/{workspaceId}/documents/upload:
+    post:
+      summary: Ingest/Upload new diligence document
+      tags:
+        - Documents
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadDocumentRequest"
+      responses:
+        "201":
+          description: Document ingested
+
+  /workspaces/{workspaceId}/evidence:
+    get:
+      summary: Retrieve evidence ledger for the workspace
+      tags:
+        - Evidence
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: propertyId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of evidence objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Evidence"
+
+  /workspaces/{workspaceId}/daily-brief:
+    get:
+      summary: Fetch latest daily brief for the workspace
+      tags:
+        - DailyBrief
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Latest Daily Brief object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyBrief"
+
+  /workspaces/{workspaceId}/daily-brief/generate:
+    post:
+      summary: Trigger daily brief generation for the workspace
+      tags:
+        - DailyBrief
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Daily Brief generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyBrief"
+
+  /workspaces/{workspaceId}/copilot/chat:
+    post:
+      summary: Send a message to the AI Analyst Copilot
+      tags:
+        - Copilot
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CopilotChatRequest"
+      responses:
+        "201":
+          description: Copilot responded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CopilotChatResponse"
+
+  /workspaces/{workspaceId}/agents/workflow/trigger:
+    post:
+      summary: Trigger a coordinated multi-agent workflow
+      tags:
+        - Agents
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkflowJobRequest"
+      responses:
+        "201":
+          description: Multi-agent workflow job queued successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /workspaces/{workspaceId}/jobs/{jobId}/approve-screening:
+    post:
+      summary: Approve screening and proceed to diligence/memo
+      tags:
+        - Agents
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Screening approved, next step running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /workspaces/{workspaceId}/jobs/{jobId}/reject-screening:
+    post:
+      summary: Reject screening and terminate workflow
+      tags:
+        - Agents
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Workflow terminated/failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /workspaces/{workspaceId}/agents/memo/generate:
+    post:
+      summary: Queue a new Investment Memo drafting job
+      tags:
+        - Agents
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMemoJobRequest"
+      responses:
+        "201":
+          description: Agent job queued successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /workspaces/{workspaceId}/jobs:
+    get:
+      summary: List all agent runs and background jobs for the workspace
+      tags:
+        - Agents
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of agent jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+
+  /workspaces/{workspaceId}/jobs/{jobId}:
+    get:
+      summary: Get details of a specific background job
+      tags:
+        - Agents
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Job detail object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /workspaces/{workspaceId}/jobs/{jobId}/approve:
+    post:
+      summary: Approve the generated draft memo and save as document
+      tags:
+        - Agents
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Job completed and document finalized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /workspaces/{workspaceId}/jobs/{jobId}/reject:
+    post:
+      summary: Discard the generated draft memo and fail the job
+      tags:
+        - Agents
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Job marked as failed/rejected
+          content:
+            application/json:
+              $ref: "#/components/schemas/Job"
+
+  /workspaces/{workspaceId}/agents/analytics:
+    get:
+      summary: Get agent execution analytics, cost, latency, and success rates
+      tags:
+        - Agents
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Agent performance analytics report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentAnalyticsResponse"
+
+  /workspaces/{workspaceId}/agents/definitions:
+    get:
+      summary: List all registered agent definitions and versions
+      tags:
+        - Agents
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of registered agents
+
+  /workspaces/{workspaceId}/agents/tools:
+    get:
+      summary: List all inspectable tool schemas and handlers
+      tags:
+        - Agents
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of registered tools
+
+  /workspaces/{workspaceId}/agents/policy/toggle:
+    post:
+      summary: Configure human approval requirements and task scheduler settings
+      tags:
+        - Agents
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TogglePolicyRequest"
+      responses:
+        "200":
+          description: Policy configured successfully
+
+  /events:
+    get:
+      summary: Get geopolitical and market events
+      description: >
+        Global market intelligence feed. This endpoint is intentionally
+        non-tenant-scoped — all authenticated users can read all events.
+        Events are macroeconomic/geopolitical data, not user-generated content.
+      tags:
+        - Events
+      responses:
+        "200":
+          description: List of market events
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - fullName
+        - passwordString
+      properties:
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        passwordString:
+          type: string
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - passwordString
+      properties:
+        email:
+          type: string
+          format: email
+        passwordString:
+          type: string
+
+    Workspace:
+      type: object
+      required:
+        - id
+        - organizationId
+        - name
+        - workspaceType
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        workspaceType:
+          type: string
+          enum: [investment, advisory, enterprise]
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateWorkspaceRequest:
+      type: object
+      required:
+        - organizationId
+        - name
+      properties:
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        workspaceType:
+          type: string
+          enum: [investment, advisory, enterprise]
+          default: investment
+
+    InvestorProfile:
+      type: object
+      required:
+        - id
+        - workspaceId
+        - name
+        - baseCurrency
+        - capitalAvailable
+        - riskTolerance
+        - investmentHorizonMonths
+        - incomeVsGrowthPreference
+        - financingPreference
+        - targetCountries
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        baseCurrency:
+          type: string
+          maxLength: 3
+        capitalAvailable:
+          type: number
+        riskTolerance:
+          type: string
+          enum: [conservative, moderate, aggressive]
+        investmentHorizonMonths:
+          type: integer
+        incomeVsGrowthPreference:
+          type: string
+          enum: [income, growth, balanced]
+        financingPreference:
+          type: string
+          enum: [cash, mortgage, flexible]
+        targetCountries:
+          type: array
+          items:
+            type: string
+            maxLength: 2
+        constraints:
+          type: object
+        goals:
+          type: object
+
+    CreateInvestorProfileRequest:
+      type: object
+      required:
+        - name
+        - capitalAvailable
+        - riskTolerance
+        - investmentHorizonMonths
+        - incomeVsGrowthPreference
+        - financingPreference
+        - targetCountries
+      properties:
+        name:
+          type: string
+        baseCurrency:
+          type: string
+          maxLength: 3
+          default: AED
+        capitalAvailable:
+          type: number
+        riskTolerance:
+          type: string
+          enum: [conservative, moderate, aggressive]
+        investmentHorizonMonths:
+          type: integer
+        incomeVsGrowthPreference:
+          type: string
+          enum: [income, growth, balanced]
+        financingPreference:
+          type: string
+          enum: [cash, mortgage, flexible]
+        targetCountries:
+          type: array
+          items:
+            type: string
+            maxLength: 2
+        constraints:
+          type: object
+        goals:
+          type: object
+
+    UnderwritePropertyInput:
+      type: object
+      required:
+        - countryCode
+        - currency
+        - purchasePrice
+        - grossRentalIncomeAnnual
+      properties:
+        workspaceId:
+          type: string
+          format: uuid
+        propertyId:
+          type: string
+          format: uuid
+        countryCode:
+          type: string
+          maxLength: 2
+        currency:
+          type: string
+          maxLength: 3
+        purchasePrice:
+          type: number
+        grossRentalIncomeAnnual:
+          type: number
+        serviceChargeValue:
+          type: number
+        serviceChargeUnit:
+          type: string
+          enum:
+            [per_sqm_annual, per_sqft_annual, per_sqm_monthly, per_sqft_monthly]
+          default: per_sqm_annual
+        interiorAreaSqm:
+          type: number
+        isOffPlan:
+          type: boolean
+        financing:
+          type: object
+          required:
+            - downPaymentPct
+            - interestRate
+            - termMonths
+          properties:
+            downPaymentPct:
+              type: number
+            interestRate:
+              type: number
+            termMonths:
+              type: integer
+
+    CommitteeEvaluateRequest:
+      type: object
+      required:
+        - investorProfileId
+        - underwriteRunId
+      properties:
+        investorProfileId:
+          type: string
+          format: uuid
+        underwriteRunId:
+          type: string
+          format: uuid
+
+    InvestmentDecision:
+      type: object
+      required:
+        - id
+        - workspaceId
+        - verdict
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        investorProfileId:
+          type: string
+          format: uuid
+        entityType:
+          type: string
+        entityId:
+          type: string
+          format: uuid
+        verdict:
+          type: string
+          enum: [Strong Buy, Buy, Wait, Avoid]
+        policyVerdict:
+          type: string
+          enum: [Strong Buy, Buy, Wait, Avoid]
+          nullable: true
+        aiVerdict:
+          type: string
+          enum: [Strong Buy, Buy, Wait, Avoid]
+          nullable: true
+        overrideReason:
+          type: string
+          nullable: true
+        confidenceScore:
+          type: number
+        thesisSummary:
+          type: string
+        objectionsSummary:
+          type: string
+        changeConditionsSummary:
+          type: string
+        decisionSource:
+          type: string
+        aiRunId:
+          type: string
+          format: uuid
+        underwriteRunId:
+          type: string
+          format: uuid
+        thesisClaims:
+          type: array
+          items:
+            $ref: "#/components/schemas/Claim"
+        objectionsClaims:
+          type: array
+          items:
+            $ref: "#/components/schemas/Claim"
+        changeConditionsClaims:
+          type: array
+          items:
+            $ref: "#/components/schemas/Claim"
+
+    UploadDocumentRequest:
+      type: object
+      required:
+        - fileName
+      properties:
+        fileName:
+          type: string
+        entityType:
+          type: string
+          default: property
+        entityId:
+          type: string
+          format: uuid
+        documentType:
+          type: string
+          default: lease_agreement
+
+    CreateShortlistRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        investorProfileId:
+          type: string
+          format: uuid
+
+    AddShortlistItemRequest:
+      type: object
+      required:
+        - entityType
+        - entityId
+      properties:
+        entityType:
+          type: string
+          enum: [property, district]
+        entityId:
+          type: string
+        rankPosition:
+          type: integer
+        notes:
+          type: string
+
+    FinancingFacility:
+      type: object
+      required:
+        - lenderName
+        - loanType
+        - principalAmount
+        - currency
+        - interestRateType
+        - interestRateValue
+        - termMonths
+      properties:
+        lenderName:
+          type: string
+        loanType:
+          type: string
+        principalAmount:
+          type: number
+        currency:
+          type: string
+          maxLength: 3
+        interestRateType:
+          type: string
+        interestRateValue:
+          type: number
+        termMonths:
+          type: integer
+
+    CreatePortfolioRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        portfolioType:
+          type: string
+          enum: [personal, syndicate, advisory, core]
+          default: personal
+        baseCurrency:
+          type: string
+          maxLength: 3
+          default: AED
+
+    AddPortfolioPositionRequest:
+      type: object
+      required:
+        - acquisitionDate
+        - acquisitionPrice
+        - acquisitionCurrency
+      properties:
+        propertyId:
+          type: string
+          format: uuid
+          nullable: true
+        acquisitionDate:
+          type: string
+          format: date-time
+        acquisitionPrice:
+          type: number
+        acquisitionCurrency:
+          type: string
+          maxLength: 3
+        ownershipSharePct:
+          type: number
+          default: 100
+        notes:
+          type: string
+        status:
+          type: string
+          enum: [active, sold, pending]
+          default: active
+        financing:
+          $ref: "#/components/schemas/FinancingFacility"
+
+    Evidence:
+      type: object
+      required:
+        - id
+        - workspaceId
+        - sourceType
+        - sourceId
+        - title
+        - freshness
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        propertyId:
+          type: string
+          format: uuid
+          nullable: true
+        sourceType:
+          type: string
+        sourceId:
+          type: string
+        title:
+          type: string
+        snippet:
+          type: string
+          nullable: true
+        confidence:
+          type: number
+          nullable: true
+        freshness:
+          type: string
+          format: date-time
+        metadataJson:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    DailyBrief:
+      type: object
+      required:
+        - id
+        - workspaceId
+        - briefDate
+        - summaryJson
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+        briefDate:
+          type: string
+          format: date
+        summaryJson:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    Claim:
+      type: object
+      required:
+        - statement
+        - isSupported
+      properties:
+        statement:
+          type: string
+        isSupported:
+          type: boolean
+        evidenceId:
+          type: string
+          format: uuid
+          nullable: true
+        confidence:
+          type: number
+          nullable: true
+        freshness:
+          type: string
+          format: date-time
+          nullable: true
+        source:
+          type: string
+          nullable: true
+
+    CopilotChatRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+        investorProfileId:
+          type: string
+          format: uuid
+          nullable: true
+        propertyId:
+          type: string
+          format: uuid
+          nullable: true
+        underwriteRunId:
+          type: string
+          format: uuid
+          nullable: true
+
+    CopilotChatResponse:
+      type: object
+      required:
+        - answer
+        - toolsUsed
+      properties:
+        answer:
+          type: string
+        toolsUsed:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - description
+              - args
+              - resultSummary
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              args:
+                type: object
+              resultSummary:
+                type: string
+        suggestedActions:
+          type: array
+          items:
+            type: object
+            required:
+              - label
+              - action
+            properties:
+              label:
+                type: string
+              action:
+                type: string
+
+    CreateWorkflowJobRequest:
+      type: object
+      required:
+        - propertyId
+        - investorProfileId
+      properties:
+        propertyId:
+          type: string
+          format: uuid
+        investorProfileId:
+          type: string
+          format: uuid
+
+    CreateMemoJobRequest:
+      type: object
+      required:
+        - propertyId
+      properties:
+        propertyId:
+          type: string
+          format: uuid
+
+    Job:
+      type: object
+      required:
+        - id
+        - jobType
+        - status
+        - progressPct
+        - inputJson
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        workspaceId:
+          type: string
+          format: uuid
+          nullable: true
+        jobType:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, blocked, awaiting_approval, completed, failed]
+        progressPct:
+          type: integer
+        inputJson:
+          type: object
+        resultRefJson:
+          type: object
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AgentAnalyticsResponse:
+      type: object
+      required:
+        - totalRuns
+        - completionRate
+        - averageLatencyMs
+        - cumulativeCost
+        - failureHotspots
+      properties:
+        totalRuns:
+          type: integer
+        completionRate:
+          type: number
+        averageLatencyMs:
+          type: number
+        cumulativeCost:
+          type: number
+        failureHotspots:
+          type: array
+          items:
+            type: object
+            required:
+              - step
+              - count
+              - errorMessage
+            properties:
+              step:
+                type: string
+              count:
+                type: integer
+              errorMessage:
+                type: string
+
+    TogglePolicyRequest:
+      type: object
+      properties:
+        requireScreeningApproval:
+          type: boolean
+        requireMemoApproval:
+          type: boolean
+        watchlistCheckIntervalSeconds:
+          type: integer

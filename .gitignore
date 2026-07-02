@@ -1,0 +1,9 @@
+.env
+.env.*
+apps/**/.next
+apps/**/dist
+packages/**/dist
+.turbo
+node_modules
+dist
+.next

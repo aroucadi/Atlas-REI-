@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTerminal } from "../../../../context/TerminalContext";
 import { api } from "../../../../lib/api";
 import { ExportUnderwriteButton } from "../../deals/_components/ExportUnderwriteButton";
+import { CommitteeMemoPanel } from "../../deals/_components/CommitteeMemoPanel";
 import {
   Calculator,
   ArrowRight,
@@ -1218,6 +1219,13 @@ export default function PropertyDetailPage({
                     </div>
                   </div>
                 )}
+                {/* Committee Memo Section */}
+                <div className="bg-bg-surface border border-border-default rounded-md">
+                  <CommitteeMemoPanel
+                    workspaceId={activeWorkspace.id}
+                    propertyId={propertyId}
+                  />
+                </div>
               </div>
             </div>
           ) : (

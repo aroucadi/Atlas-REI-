@@ -19,6 +19,7 @@ import { CopilotModule } from './copilot/copilot.module';
 import { AgentModule } from './agent/agent.module';
 import { BullModule } from '@nestjs/bullmq';
 import { UnderwriteExportModule } from './exports/underwrite-export.module';
+import { CommitteeMemoModule } from './committee-memo/committee-memo.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { UnderwriteExportModule } from './exports/underwrite-export.module';
     CopilotModule,
     AgentModule,
     UnderwriteExportModule,
+    CommitteeMemoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

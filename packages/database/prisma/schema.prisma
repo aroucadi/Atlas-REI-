@@ -1120,6 +1120,9 @@ model CommitteeMemo {
   complianceMismatchesJson  Json     @map("compliance_mismatches_json")
   generatedByUserId         String   @map("generated_by_user_id") @db.Uuid
   inputSourcesJson          Json     @map("input_sources_json")
+  status                    String   @default("draft")
+  signedOffByUserId         String?  @map("signed_off_by_user_id") @db.Uuid
+  signedOffAt               DateTime? @map("signed_off_at") @db.Timestamptz
   createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   workspace                 Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

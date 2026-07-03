@@ -120,6 +120,18 @@ vi.mock("../components/visuals/NoDocuments", () => ({
   default: () => React.createElement("div", null, "No documents found"),
 }));
 
+// Mock react-pdf since jsdom does not support Canvas/PDF rendering APIs (like DOMMatrix)
+vi.mock("react-pdf", () => ({
+  Document: ({ children }: any) => React.createElement("div", { "data-testid": "mock-pdf-document" }, children),
+  Page: () => React.createElement("div", { "data-testid": "mock-pdf-page" }),
+  pdfjs: {
+    GlobalWorkerOptions: {
+      workerSrc: "",
+    },
+    version: "0.0.0",
+  },
+}));
+
 describe("Dashboard Pages — Smoke Tests", () => {
   beforeEach(() => {
     vi.clearAllMocks();

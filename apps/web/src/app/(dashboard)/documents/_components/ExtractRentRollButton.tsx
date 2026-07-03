@@ -34,7 +34,7 @@ type ExtractionState =
 interface ExtractRentRollButtonProps {
   workspaceId: string;
   document: DocumentSummary;
-  onExtractionSuccess?: () => void;
+  onComplete?: () => void;
 }
 
 async function triggerRentRollExtraction(
@@ -63,7 +63,7 @@ async function triggerRentRollExtraction(
 export function ExtractRentRollButton({
   workspaceId,
   document,
-  onExtractionSuccess,
+  onComplete,
 }: ExtractRentRollButtonProps) {
   const [state, setState] = useState<ExtractionState>({ status: 'idle' });
 
@@ -76,8 +76,8 @@ export function ExtractRentRollButton({
     try {
       const result = await triggerRentRollExtraction(workspaceId, document.id);
       setState({ status: 'success', result });
-      if (onExtractionSuccess) {
-        onExtractionSuccess();
+      if (onComplete) {
+        onComplete();
       }
     } catch (err) {
       setState({

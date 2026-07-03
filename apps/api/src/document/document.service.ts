@@ -213,4 +213,51 @@ export class DocumentService {
       });
     }
   }
+
+  async getPresignedUrl(workspaceId: string, documentId: string) {
+    const doc = await this.db.client.document.findFirst({
+      where: { id: documentId, workspaceId },
+    });
+    if (!doc) {
+      throw new Error(`Document ${documentId} not found`);
+    }
+    // Return relative URL that points to our file streaming endpoint
+    return {
+      url: `/api/workspaces/${workspaceId}/documents/${documentId}/file`,
+      expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
+    };
+  }
+
+  async getDocumentFile(workspaceId: string, documentId: string) {
+    const doc = await this.db.client.document.findFirst({
+      where: { id: documentId, workspaceId },
+    });
+    if (!doc) {
+      throw new Error(`Document ${documentId} not found`);
+    }
+    const absolutePath = path.resolve(process.cwd(), doc.storagePath);
+    if (!fs.existsSync(absolutePath)) {
+      throw new Error(`File not found at: ${doc.storagePath}`);
+    }
+    return {
+      buffer: fs.readFileSync(absolutePath),
+      mimeType: doc.mimeType,
+      fileName: doc.fileName,
+    };
+  }
+
+  async getLatestExtraction(workspaceId: string, documentId: string) {
+    const doc = await this.db.client.document.findFirst({
+      where: { id: documentId, workspaceId },
+    });
+    if (!doc) {
+      throw new Error(`Document ${documentId} not found`);
+    }
+    const extraction = await this.db.client.documentExtraction.findFirst({
+      where: { documentId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return extraction; // if null, controller will catch it and throw NotFoundException
+  }
 }
+

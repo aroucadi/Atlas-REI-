@@ -1,14 +1,79 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useTerminal } from "../../../context/TerminalContext";
 import { api } from "../../../lib/api";
-import { FileText, Upload, AlertCircle } from "lucide-react";
+import { FileText, Upload, AlertCircle, Loader2 } from "lucide-react";
 import NoDocuments from "../../../components/visuals/NoDocuments";
 import { ExtractRentRollButton } from "./_components/ExtractRentRollButton";
+import { DocumentLineagePanel } from "./_components/DocumentLineagePanel";
+import { DiligenceGapsPanel } from "./_components/DiligenceGapsPanel";
+
+// -----------------------------------------------------------------------------
+// Data hook for presigned URLs & extraction details
+// -----------------------------------------------------------------------------
+
+function useDocumentDetail(workspaceId: string, documentId: string | null) {
+  const [presignedUrl, setPresignedUrl] = useState<string | null>(null);
+  const [extraction, setExtraction] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    if (!workspaceId || !documentId) {
+      setPresignedUrl(null);
+      setExtraction(null);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const [urlRes, extractionRes] = await Promise.all([
+        fetch(`/api/workspaces/${workspaceId}/documents/${documentId}/presigned-url`, {
+          credentials: 'include',
+        }),
+        fetch(`/api/workspaces/${workspaceId}/documents/${documentId}/extraction`, {
+          credentials: 'include',
+        }),
+      ]);
+
+      if (!urlRes.ok) {
+        throw new Error(`Failed to load document preview (${urlRes.status})`);
+      }
+      const urlData = await urlRes.json();
+      setPresignedUrl(urlData.url);
+
+      if (extractionRes.status === 404) {
+        setExtraction(null);
+      } else if (!extractionRes.ok) {
+        throw new Error(`Failed to load extraction (${extractionRes.status})`);
+      } else {
+        const extractionData = await extractionRes.json();
+        setExtraction(extractionData);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load document details");
+    } finally {
+      setLoading(false);
+    }
+  }, [workspaceId, documentId]);
+
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
+
+  return { presignedUrl, extraction, loading, error, refetch };
+}
+
+// -----------------------------------------------------------------------------
+// Main component
+// -----------------------------------------------------------------------------
 
 export default function DocumentsPage() {
   const { activeWorkspace } = useTerminal();
+  const workspaceId = activeWorkspace?.id || "";
+
   const [documents, setDocuments] = useState<any[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -16,6 +81,17 @@ export default function DocumentsPage() {
   const [uploadError, setUploadError] = useState("");
   const [fileName, setFileName] = useState("");
   const [fileBase64, setFileBase64] = useState("");
+
+  const isRentRoll = selectedDoc?.documentType === "rent_roll";
+
+  // Document details hook for PDF preview & extractions
+  const {
+    presignedUrl,
+    extraction,
+    loading: detailLoading,
+    error: detailError,
+    refetch: refetchDetail,
+  } = useDocumentDetail(workspaceId, isRentRoll ? selectedDoc?.id : null);
 
   const loadDocuments = async () => {
     if (!activeWorkspace) return;
@@ -84,11 +160,16 @@ export default function DocumentsPage() {
     if (!activeWorkspace || !fileName.trim()) return;
     setUploadError("");
     try {
+      // Hardcode rent_roll type if the filename contains "rent" or "roll" to make it user-friendly
+      const docType = fileName.toLowerCase().includes("rent") || fileName.toLowerCase().includes("roll")
+        ? "rent_roll"
+        : "lease_agreement";
+
       await api.uploadDocument(activeWorkspace.id, {
         fileName: fileName.trim(),
         fileBase64: fileBase64 || btoa("Default empty file content"),
         entityType: "property",
-        documentType: "lease_agreement",
+        documentType: docType,
       });
       setFileName("");
       setFileBase64("");
@@ -138,8 +219,8 @@ export default function DocumentsPage() {
               <span>Upload Diligence File</span>
             </h2>
             <div className="bg-success/10 border border-success/30 rounded-sm p-3 text-[10px] text-success font-mono mb-2">
-              <strong>[PIPELINE ONLINE]</strong> Document ingestion is active.
-              Upload lease agreements to extract investment evidence.
+              <strong>[PIPELINE ONLINE]</strong> Document Ingestion Active.
+              Upload leases or rent rolls to run extractions.
             </div>
             {uploadError && (
               <div className="bg-danger/10 border border-danger/30 rounded-sm p-3 text-[10px] text-danger font-mono mb-2">
@@ -232,7 +313,7 @@ export default function DocumentsPage() {
                   <span className="bg-danger/15 text-danger border border-danger/30 px-2 py-0.5 rounded-xs text-[10px] font-mono uppercase">
                     Extraction Failed
                   </span>
-                ) : selectedDoc.status === "pending" ? (
+                ) : selectedDoc.status === "pending" || selectedDoc.status === "processing" ? (
                   <span className="bg-warning/15 text-warning border border-warning/30 px-2 py-0.5 rounded-xs text-[10px] font-mono uppercase">
                     Extraction Pending
                   </span>
@@ -243,13 +324,14 @@ export default function DocumentsPage() {
                 )}
               </div>
 
-              {activeWorkspace && selectedDoc.documentType === 'rent_roll' && selectedDoc.status === 'completed' && (
+              {activeWorkspace && isRentRoll && (
                 <div className="pb-4 border-b border-border-subtle/40">
                   <ExtractRentRollButton
                     workspaceId={activeWorkspace.id}
                     document={selectedDoc}
-                    onExtractionSuccess={() => {
-                      loadDocuments();
+                    onComplete={async () => {
+                      await loadDocuments();
+                      refetchDetail();
                     }}
                   />
                 </div>
@@ -273,7 +355,44 @@ export default function DocumentsPage() {
                     </span>
                   </div>
                 </div>
+              ) : isRentRoll ? (
+                /* --- RENT ROLL DETAIL VIEW WITH LINEAGE PREVIEW --- */
+                detailLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-slate-500 font-mono">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading lineage preview…
+                  </div>
+                ) : detailError ? (
+                  <div className="p-4 bg-danger/5 border border-danger/20 text-danger rounded-sm text-xs font-mono">
+                    {detailError}
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <DiligenceGapsPanel
+                      extraction={extraction}
+                      onRetry={async () => {
+                        await loadDocuments();
+                        refetchDetail();
+                      }}
+                    />
+                    {extraction?.status === "completed" && presignedUrl ? (
+                      <div className="h-[600px] border border-border-subtle rounded-sm overflow-hidden">
+                        <DocumentLineagePanel
+                          workspaceId={workspaceId}
+                          documentId={selectedDoc.id}
+                          pdfUrl={presignedUrl}
+                          extraction={extraction}
+                        />
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 text-text-muted text-xs font-mono">
+                        No completed extraction lineage available. Click "Extract Rent Roll" to run.
+                      </div>
+                    )}
+                  </div>
+                )
               ) : selectedDoc.extractions?.[0] ? (
+                /* --- GENERAL DOCUMENT VIEW (e.g. lease agreement) --- */
                 <div className="space-y-6">
                   <div>
                     <h4 className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-2">
@@ -309,7 +428,7 @@ export default function DocumentsPage() {
                                   isHigh
                                     ? "bg-success/10 text-success"
                                     : "bg-warning/10 text-warning"
-                                }`}
+                                  }`}
                               >
                                 {(confidence * 100).toFixed(0)}%
                               </span>

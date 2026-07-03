@@ -656,3 +656,4 @@ This is a high-fidelity simulation of the Gemini AI Gateway response, confirming
 
 export * from "./schemas/rentRoll.schema";
 export * from "./schemas/t12OperatingStatement.schema";
+export * from "./schemas/committeeMemo.schema";

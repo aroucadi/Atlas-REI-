@@ -90,6 +90,7 @@ model Workspace {
   agentMessages  AgentMessage[]
   kernelProcesses KernelProcess[]
   optimizationProposals OptimizationProposal[]
+  committeeMemos CommitteeMemo[]
 
   @@map("workspaces")
 }
@@ -379,6 +380,7 @@ model Property {
   portfolioPositions  PortfolioPosition[]
   underwriteRuns      UnderwriteRun[]
   evidence            Evidence[]
+  committeeMemos      CommitteeMemo[]
 
   @@map("properties")
 }
@@ -1107,5 +1109,23 @@ model OptimizationProposal {
   testSuite      TestSuite? @relation(fields: [testSuiteId], references: [id], onDelete: SetNull)
 
   @@map("optimization_proposals")
+}
+
+model CommitteeMemo {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId               String   @map("workspace_id") @db.Uuid
+  propertyId                String   @map("property_id") @db.Uuid
+  memoVersion               String   @map("memo_version")
+  contentJson               Json     @map("content_json")
+  complianceMismatchesJson  Json     @map("compliance_mismatches_json")
+  generatedByUserId         String   @map("generated_by_user_id") @db.Uuid
+  inputSourcesJson          Json     @map("input_sources_json")
+  createdAt                 DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  workspace                 Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  property                  Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@map("committee_memos")
+  @@index([workspaceId, propertyId])
 }
 

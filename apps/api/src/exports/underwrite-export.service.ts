@@ -6,6 +6,7 @@ import {
 import { DatabaseService } from '../database/database.service';
 import {
   buildUnderwriteWorkbook,
+  addHistoricalT12Sheet,
   UnderwriteExportPayload,
   UnderwriteExportRow,
 } from './underwriteExport';
@@ -124,7 +125,46 @@ export class UnderwriteExportService {
   ): Promise<{ workbook: ExcelJS.Workbook; fileName: string }> {
     const payload = await this.buildExportPayload(workspaceId, underwriteRunId);
     const workbook = await buildUnderwriteWorkbook(payload);
+
+    const run = await this.db.client.underwriteRun.findUnique({
+      where: { id: underwriteRunId },
+    });
+
+    if (run) {
+      const t12Extraction = await this.db.client.documentExtraction.findFirst({
+        where: {
+          document: {
+            workspaceId,
+            documentType: 'operating_statement',
+            entityType: 'property',
+            entityId: run.propertyId,
+          },
+          status: 'completed',
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (t12Extraction) {
+        const t12Data = t12Extraction.fieldsJson as any;
+        const monthLabels = this.buildMonthLabels(t12Data.statementPeriodStart?.value);
+        addHistoricalT12Sheet(workbook, t12Data, monthLabels);
+      }
+    }
+
     const fileName = `${payload.meta.propertyName.replace(/[^a-z0-9]+/gi, '_')}_underwrite.xlsx`;
     return { workbook, fileName };
+  }
+
+  private buildMonthLabels(periodStartIso: string | null | undefined): string[] {
+    if (!periodStartIso) return Array.from({ length: 12 }, (_, i) => `M${i + 1}`);
+    try {
+      const start = new Date(periodStartIso);
+      return Array.from({ length: 12 }, (_, i) => {
+        const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+        return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      });
+    } catch {
+      return Array.from({ length: 12 }, (_, i) => `M${i + 1}`);
+    }
   }
 }

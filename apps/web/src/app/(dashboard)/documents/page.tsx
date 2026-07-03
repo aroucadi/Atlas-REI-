@@ -6,6 +6,7 @@ import { api } from "../../../lib/api";
 import { FileText, Upload, AlertCircle, Loader2 } from "lucide-react";
 import NoDocuments from "../../../components/visuals/NoDocuments";
 import { ExtractRentRollButton } from "./_components/ExtractRentRollButton";
+import { ExtractT12Button } from "./_components/ExtractT12Button";
 import { DocumentLineagePanel } from "./_components/DocumentLineagePanel";
 import { DiligenceGapsPanel } from "./_components/DiligenceGapsPanel";
 
@@ -83,6 +84,8 @@ export default function DocumentsPage() {
   const [fileBase64, setFileBase64] = useState("");
 
   const isRentRoll = selectedDoc?.documentType === "rent_roll";
+  const isT12 = selectedDoc?.documentType === "operating_statement";
+  const isExtractable = isRentRoll || isT12;
 
   // Document details hook for PDF preview & extractions
   const {
@@ -91,7 +94,7 @@ export default function DocumentsPage() {
     loading: detailLoading,
     error: detailError,
     refetch: refetchDetail,
-  } = useDocumentDetail(workspaceId, isRentRoll ? selectedDoc?.id : null);
+  } = useDocumentDetail(workspaceId, isExtractable ? selectedDoc?.id : null);
 
   const loadDocuments = async () => {
     if (!activeWorkspace) return;
@@ -337,6 +340,19 @@ export default function DocumentsPage() {
                 </div>
               )}
 
+              {activeWorkspace && isT12 && (
+                <div className="pb-4 border-b border-border-subtle/40">
+                  <ExtractT12Button
+                    workspaceId={activeWorkspace.id}
+                    document={selectedDoc}
+                    onComplete={async () => {
+                      await loadDocuments();
+                      refetchDetail();
+                    }}
+                  />
+                </div>
+              )}
+
               {selectedDoc.status === "failed" ? (
                 <div className="p-4 bg-danger/5 border border-danger/20 text-danger rounded-sm flex gap-3 items-start text-xs font-mono">
                   <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
@@ -355,8 +371,8 @@ export default function DocumentsPage() {
                     </span>
                   </div>
                 </div>
-              ) : isRentRoll ? (
-                /* --- RENT ROLL DETAIL VIEW WITH LINEAGE PREVIEW --- */
+              ) : isExtractable ? (
+                /* --- RENT ROLL / T-12 DETAIL VIEW WITH LINEAGE PREVIEW --- */
                 detailLoading ? (
                   <div className="flex items-center gap-2 text-sm text-slate-500 font-mono">
                     <Loader2 className="h-4 w-4 animate-spin" />

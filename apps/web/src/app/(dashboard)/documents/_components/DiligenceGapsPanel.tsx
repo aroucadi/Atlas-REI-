@@ -5,7 +5,7 @@ import { AlertTriangle, XCircle, AlertCircle } from 'lucide-react';
 interface FailedExtraction {
   status: 'failed';
   failureDetailJson: {
-    reason: 'insufficient_ocr_text' | 'ai_gateway_error' | 'schema_validation_failed' | 'zero_units_extracted';
+    reason: 'insufficient_ocr_text' | 'ai_gateway_error' | 'schema_validation_failed' | 'zero_units_extracted' | 'zero_data_extracted';
     [key: string]: unknown;
   };
 }
@@ -15,7 +15,13 @@ interface CompletedExtraction {
   missingItemsJson: string[];
   confidenceJson: {
     documentAggregateConfidence: number;
-    lowConfidenceUnits: (string | null)[];
+    lowConfidenceUnits?: (string | null)[];
+    reconciliation?: {
+      status: 'reconciled' | 'discrepancy' | 'not_reported';
+      reportedNOI: number | null;
+      computedNOI: number;
+      deltaPct: number | null;
+    };
   };
 }
 
@@ -35,6 +41,8 @@ const FAILURE_MESSAGES: Record<FailedExtraction['failureDetailJson']['reason'], 
     'Extraction returned an unexpected result and could not be processed. This has been flagged for review.',
   zero_units_extracted:
     'No unit rows could be identified in this document. Confirm this is a standard rent roll format, or contact support if it should have parsed.',
+  zero_data_extracted:
+    'No usable financial entries could be identified in this operating statement. Confirm this is a standard T-12 format, or contact support if it should have parsed.',
 };
 
 export function DiligenceGapsPanel({ extraction, onRetry }: DiligenceGapsPanelProps) {
@@ -75,13 +83,20 @@ export function DiligenceGapsPanel({ extraction, onRetry }: DiligenceGapsPanelPr
   const missingItems = extraction.missingItemsJson ?? [];
   const lowConfidenceUnits = (extraction.confidenceJson?.lowConfidenceUnits ?? []).filter(Boolean);
   const aggregateConfidence = extraction.confidenceJson?.documentAggregateConfidence ?? 1.0;
-  const hasGaps = missingItems.length > 0 || lowConfidenceUnits.length > 0;
+  const reconciliation = extraction.confidenceJson?.reconciliation;
+  const hasReconciliationDiscrepancy = reconciliation?.status === 'discrepancy';
+  const hasGaps = missingItems.length > 0 || lowConfidenceUnits.length > 0 || hasReconciliationDiscrepancy;
 
   if (!hasGaps) {
     return null; // clean extraction — nothing to show, don't clutter the UI
   }
 
-  const severity = aggregateConfidence < 0.5 ? 'high' : 'moderate';
+  const severity = aggregateConfidence < 0.5 || hasReconciliationDiscrepancy ? 'high' : 'moderate';
+
+  const formatCurrency = (val: number | null | undefined) => {
+    if (val === null || val === undefined) return '—';
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+  };
 
   return (
     <div
@@ -101,6 +116,16 @@ export function DiligenceGapsPanel({ extraction, onRetry }: DiligenceGapsPanelPr
           <p className="font-medium">
             Diligence gaps found ({Math.round(aggregateConfidence * 100)}% overall confidence)
           </p>
+
+          {hasReconciliationDiscrepancy && reconciliation && (
+            <div className="mt-2 rounded bg-white px-2 py-1.5 text-xs text-amber-800 ring-1 ring-inset ring-amber-600/20 font-mono">
+              <strong>NOI Discrepancy:</strong> Document reports{' '}
+              {formatCurrency(reconciliation.reportedNOI)}
+              , but line items sum to{' '}
+              {formatCurrency(reconciliation.computedNOI)}
+              {' '}({((reconciliation.deltaPct ?? 0) * 100).toFixed(1)}% difference).
+            </div>
+          )}
 
           {lowConfidenceUnits.length > 0 && (
             <div className="mt-2">

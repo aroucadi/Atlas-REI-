@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { WorkspaceMembershipGuard } from '../auth/workspace-membership.guard';
 import { DocumentService } from './document.service';
 import { RentRollExtractionService } from './rent-roll-extraction.service';
+import { T12ExtractionService } from './t12-extraction.service';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { UploadDocumentSchema } from '@atlas/shared-types';
 
@@ -22,6 +23,7 @@ export class DocumentController {
   constructor(
     private readonly documentService: DocumentService,
     private readonly rentRollExtractionService: RentRollExtractionService,
+    private readonly t12ExtractionService: T12ExtractionService,
   ) {}
 
   @Get()
@@ -53,6 +55,19 @@ export class DocumentController {
     @CurrentUser() user: any,
   ) {
     return this.rentRollExtractionService.extract({
+      documentId,
+      workspaceId,
+      requestedByUserId: user.id,
+    });
+  }
+
+  @Post(':id/extract-t12')
+  async extractT12(
+    @Param('workspaceId') workspaceId: string,
+    @Param('id') documentId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.t12ExtractionService.extract({
       documentId,
       workspaceId,
       requestedByUserId: user.id,

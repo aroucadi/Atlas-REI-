@@ -6,7 +6,7 @@ export class AuditLogImmutabilityViolationError extends ForbiddenException {
   constructor(operation: string) {
     super(
       `Blocked attempt to call "${operation}" on audit_logs. ` +
-        `audit_logs is a WORM (write-once-read-many) table. Only AuditLogService.log() is permitted.`
+        `audit_logs is a WORM (write-once-read-many) table. Only AuditLogService.log() is permitted.`,
     );
   }
 }
@@ -19,9 +19,7 @@ const BLOCKED_OPERATIONS = new Set([
   'upsert',
 ]);
 
-function createImmutableAuditLogDelegate(
-  delegate: any,
-): any {
+function createImmutableAuditLogDelegate(delegate: any): any {
   return new Proxy(delegate, {
     get(target, prop: string, receiver) {
       if (BLOCKED_OPERATIONS.has(prop)) {
@@ -109,7 +107,11 @@ export class AuditLogService {
     detail: string;
   }> {
     const [result] = await this.db.client.$queryRaw<
-      Array<{ is_valid: boolean; first_broken_id: string | null; detail: string }>
+      Array<{
+        is_valid: boolean;
+        first_broken_id: string | null;
+        detail: string;
+      }>
     >(Prisma.sql`SELECT * FROM verify_audit_chain()`);
 
     if (!result.is_valid) {

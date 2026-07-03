@@ -1,6 +1,12 @@
 import ExcelJS from 'exceljs';
 
-export type UnderwriteFieldFormat = 'currency' | 'percent' | 'number' | 'date' | 'text' | 'ratio';
+export type UnderwriteFieldFormat =
+  | 'currency'
+  | 'percent'
+  | 'number'
+  | 'date'
+  | 'text'
+  | 'ratio';
 
 export interface InputRow {
   kind: 'input';
@@ -41,14 +47,15 @@ export interface UnderwriteExportPayload {
   rows: UnderwriteExportRow[];
 }
 
-const EXCEL_NUMBER_FORMATS: Record<UnderwriteFieldFormat, string | undefined> = {
-  currency: '$#,##0',
-  percent: '0.00%',
-  ratio: '0.00"x"',
-  number: '#,##0',
-  date: 'yyyy-mm-dd',
-  text: undefined,
-};
+const EXCEL_NUMBER_FORMATS: Record<UnderwriteFieldFormat, string | undefined> =
+  {
+    currency: '$#,##0',
+    percent: '0.00%',
+    ratio: '0.00"x"',
+    number: '#,##0',
+    date: 'yyyy-mm-dd',
+    text: undefined,
+  };
 
 const VALUE_COLUMN = 'C'; // matches the sheet.columns layout below
 
@@ -71,8 +78,16 @@ export async function buildUnderwriteWorkbook(
   ];
   sheet.getRow(1).font = { bold: true };
 
-  sheet.addRow({ section: 'Meta', label: 'Property', value: payload.meta.propertyName });
-  sheet.addRow({ section: 'Meta', label: 'Generated', value: payload.meta.generatedAt });
+  sheet.addRow({
+    section: 'Meta',
+    label: 'Property',
+    value: payload.meta.propertyName,
+  });
+  sheet.addRow({
+    section: 'Meta',
+    label: 'Generated',
+    value: payload.meta.generatedAt,
+  });
   sheet.addRow({});
 
   // Track which Excel row each refKey landed on, so later formula rows can
@@ -98,7 +113,7 @@ export async function buildUnderwriteWorkbook(
     const addedRow = sheet.addRow({
       section: '',
       label: row.label,
-      notes: row.kind === 'formula' ? row.notes ?? '' : '',
+      notes: row.kind === 'formula' ? (row.notes ?? '') : '',
     });
 
     const valueCell = addedRow.getCell('value');
@@ -145,7 +160,20 @@ function resolveFormulaTemplate(
   });
 }
 
-const MONTH_COLUMNS = ['D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O'];
+const MONTH_COLUMNS = [
+  'D',
+  'E',
+  'F',
+  'G',
+  'H',
+  'I',
+  'J',
+  'K',
+  'L',
+  'M',
+  'N',
+  'O',
+];
 const TOTAL_COLUMN = 'P';
 const FIRST_DATA_ROW = 5;
 
@@ -157,31 +185,91 @@ interface T12LineItemRow {
 
 function buildIncomeRows(income: any): T12LineItemRow[] {
   const rows: T12LineItemRow[] = [
-    { label: 'Gross Potential Rent', monthlyValues: income.grossPotentialRent.monthlyValues, sourceSpanId: income.grossPotentialRent.spanId },
-    { label: 'Physical Vacancy Loss', monthlyValues: income.physicalVacancyLoss.monthlyValues, sourceSpanId: income.physicalVacancyLoss.spanId },
-    { label: 'Concessions', monthlyValues: income.concessionsLoss.monthlyValues, sourceSpanId: income.concessionsLoss.spanId },
-    { label: 'Bad Debt', monthlyValues: income.badDebtLoss.monthlyValues, sourceSpanId: income.badDebtLoss.spanId },
-    { label: 'Utility Chargeback Income', monthlyValues: income.utilityChargebackIncome.monthlyValues, sourceSpanId: income.utilityChargebackIncome.spanId },
+    {
+      label: 'Gross Potential Rent',
+      monthlyValues: income.grossPotentialRent.monthlyValues,
+      sourceSpanId: income.grossPotentialRent.spanId,
+    },
+    {
+      label: 'Physical Vacancy Loss',
+      monthlyValues: income.physicalVacancyLoss.monthlyValues,
+      sourceSpanId: income.physicalVacancyLoss.spanId,
+    },
+    {
+      label: 'Concessions',
+      monthlyValues: income.concessionsLoss.monthlyValues,
+      sourceSpanId: income.concessionsLoss.spanId,
+    },
+    {
+      label: 'Bad Debt',
+      monthlyValues: income.badDebtLoss.monthlyValues,
+      sourceSpanId: income.badDebtLoss.spanId,
+    },
+    {
+      label: 'Utility Chargeback Income',
+      monthlyValues: income.utilityChargebackIncome.monthlyValues,
+      sourceSpanId: income.utilityChargebackIncome.spanId,
+    },
   ];
   for (const item of income.otherAncillaryIncome || []) {
-    rows.push({ label: item.category, monthlyValues: item.monthlyValues.monthlyValues, sourceSpanId: item.monthlyValues.spanId });
+    rows.push({
+      label: item.category,
+      monthlyValues: item.monthlyValues.monthlyValues,
+      sourceSpanId: item.monthlyValues.spanId,
+    });
   }
   return rows;
 }
 
 function buildExpenseRows(expenses: any): T12LineItemRow[] {
   const rows: T12LineItemRow[] = [
-    { label: 'Property Taxes', monthlyValues: expenses.propertyTaxes.monthlyValues, sourceSpanId: expenses.propertyTaxes.spanId },
-    { label: 'Insurance', monthlyValues: expenses.insurance.monthlyValues, sourceSpanId: expenses.insurance.spanId },
-    { label: 'Repairs & Maintenance', monthlyValues: expenses.repairsAndMaintenance.monthlyValues, sourceSpanId: expenses.repairsAndMaintenance.spanId },
-    { label: 'Utilities (Owner-Paid)', monthlyValues: expenses.utilities.monthlyValues, sourceSpanId: expenses.utilities.spanId },
-    { label: 'Management Fees', monthlyValues: expenses.managementFees.monthlyValues, sourceSpanId: expenses.managementFees.spanId },
-    { label: 'Advertising & Marketing', monthlyValues: expenses.advertisingAndMarketing.monthlyValues, sourceSpanId: expenses.advertisingAndMarketing.spanId },
-    { label: 'Administrative', monthlyValues: expenses.administrativeCosts.monthlyValues, sourceSpanId: expenses.administrativeCosts.spanId },
-    { label: 'Payroll & Benefits', monthlyValues: expenses.payrollAndBenefits.monthlyValues, sourceSpanId: expenses.payrollAndBenefits.spanId },
+    {
+      label: 'Property Taxes',
+      monthlyValues: expenses.propertyTaxes.monthlyValues,
+      sourceSpanId: expenses.propertyTaxes.spanId,
+    },
+    {
+      label: 'Insurance',
+      monthlyValues: expenses.insurance.monthlyValues,
+      sourceSpanId: expenses.insurance.spanId,
+    },
+    {
+      label: 'Repairs & Maintenance',
+      monthlyValues: expenses.repairsAndMaintenance.monthlyValues,
+      sourceSpanId: expenses.repairsAndMaintenance.spanId,
+    },
+    {
+      label: 'Utilities (Owner-Paid)',
+      monthlyValues: expenses.utilities.monthlyValues,
+      sourceSpanId: expenses.utilities.spanId,
+    },
+    {
+      label: 'Management Fees',
+      monthlyValues: expenses.managementFees.monthlyValues,
+      sourceSpanId: expenses.managementFees.spanId,
+    },
+    {
+      label: 'Advertising & Marketing',
+      monthlyValues: expenses.advertisingAndMarketing.monthlyValues,
+      sourceSpanId: expenses.advertisingAndMarketing.spanId,
+    },
+    {
+      label: 'Administrative',
+      monthlyValues: expenses.administrativeCosts.monthlyValues,
+      sourceSpanId: expenses.administrativeCosts.spanId,
+    },
+    {
+      label: 'Payroll & Benefits',
+      monthlyValues: expenses.payrollAndBenefits.monthlyValues,
+      sourceSpanId: expenses.payrollAndBenefits.spanId,
+    },
   ];
   for (const item of expenses.otherExpenses || []) {
-    rows.push({ label: item.category, monthlyValues: item.monthlyValues.monthlyValues, sourceSpanId: item.monthlyValues.spanId });
+    rows.push({
+      label: item.category,
+      monthlyValues: item.monthlyValues.monthlyValues,
+      sourceSpanId: item.monthlyValues.spanId,
+    });
   }
   return rows;
 }
@@ -202,7 +290,8 @@ export function addHistoricalT12Sheet(
 
   // --- Header ---
   sheet.mergeCells('A1:P1');
-  sheet.getCell('A1').value = `${t12.propertyName?.value || 'Property'} — Trailing 12-Month Operating Statement`;
+  sheet.getCell('A1').value =
+    `${t12.propertyName?.value || 'Property'} — Trailing 12-Month Operating Statement`;
   sheet.getCell('A1').font = { bold: true, size: 13 };
 
   const headerRow = sheet.getRow(3);
@@ -213,7 +302,11 @@ export function addHistoricalT12Sheet(
   headerRow.getCell(TOTAL_COLUMN).value = 'Total';
   headerRow.font = { bold: true };
   headerRow.eachCell((cell) => {
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF1E293B' },
+    };
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   });
 
@@ -237,7 +330,9 @@ export function addHistoricalT12Sheet(
   sheet.getCell(`C${totalIncomeRow}`).font = { bold: true };
   MONTH_COLUMNS.forEach((col) => {
     const cell = sheet.getCell(`${col}${totalIncomeRow}`);
-    cell.value = { formula: `SUM(${col}${incomeRowRange[0]}:${col}${incomeRowRange[incomeRowRange.length - 1]})` };
+    cell.value = {
+      formula: `SUM(${col}${incomeRowRange[0]}:${col}${incomeRowRange[incomeRowRange.length - 1]})`,
+    };
     cell.numFmt = '$#,##0';
     cell.font = { bold: true };
   });
@@ -264,7 +359,9 @@ export function addHistoricalT12Sheet(
   sheet.getCell(`C${totalExpenseRow}`).font = { bold: true };
   MONTH_COLUMNS.forEach((col) => {
     const cell = sheet.getCell(`${col}${totalExpenseRow}`);
-    cell.value = { formula: `SUM(${col}${expenseRowRange[0]}:${col}${expenseRowRange[expenseRowRange.length - 1]})` };
+    cell.value = {
+      formula: `SUM(${col}${expenseRowRange[0]}:${col}${expenseRowRange[expenseRowRange.length - 1]})`,
+    };
     cell.numFmt = '$#,##0';
     cell.font = { bold: true };
   });
@@ -281,12 +378,16 @@ export function addHistoricalT12Sheet(
   sheet.getCell(`C${noiRow}`).font = { bold: true, size: 11 };
   MONTH_COLUMNS.forEach((col) => {
     const cell = sheet.getCell(`${col}${noiRow}`);
-    cell.value = { formula: `${col}${totalIncomeRow}-${col}${totalExpenseRow}` };
+    cell.value = {
+      formula: `${col}${totalIncomeRow}-${col}${totalExpenseRow}`,
+    };
     cell.numFmt = '$#,##0';
     cell.font = { bold: true };
   });
   const noiTotalCell = sheet.getCell(`${TOTAL_COLUMN}${noiRow}`);
-  noiTotalCell.value = { formula: `${TOTAL_COLUMN}${totalIncomeRow}-${TOTAL_COLUMN}${totalExpenseRow}` };
+  noiTotalCell.value = {
+    formula: `${TOTAL_COLUMN}${totalIncomeRow}-${TOTAL_COLUMN}${totalExpenseRow}`,
+  };
   noiTotalCell.numFmt = '$#,##0';
   noiTotalCell.font = { bold: true };
   sheet.getRow(noiRow).eachCell((cell) => {
@@ -295,21 +396,38 @@ export function addHistoricalT12Sheet(
   currentRow += 2;
 
   // --- Reconciliation note ---
-  if (t12.reportedTotals?.netOperatingIncome?.value !== null && t12.reportedTotals?.netOperatingIncome?.value !== undefined) {
-    sheet.getCell(`C${currentRow}`).value = `Source document reported NOI: $${t12.reportedTotals.netOperatingIncome.value.toLocaleString()} (compare to computed total above)`;
-    sheet.getCell(`C${currentRow}`).font = { italic: true, size: 9, color: { argb: 'FF64748B' } };
+  if (
+    t12.reportedTotals?.netOperatingIncome?.value !== null &&
+    t12.reportedTotals?.netOperatingIncome?.value !== undefined
+  ) {
+    sheet.getCell(`C${currentRow}`).value =
+      `Source document reported NOI: $${t12.reportedTotals.netOperatingIncome.value.toLocaleString()} (compare to computed total above)`;
+    sheet.getCell(`C${currentRow}`).font = {
+      italic: true,
+      size: 9,
+      color: { argb: 'FF64748B' },
+    };
     currentRow++;
   }
 
   if (t12.discrepancyNotes && t12.discrepancyNotes.length > 0) {
-    sheet.getCell(`C${currentRow}`).value = `Extraction notes: ${t12.discrepancyNotes.join(' | ')}`;
-    sheet.getCell(`C${currentRow}`).font = { italic: true, size: 9, color: { argb: 'FFB45309' } };
+    sheet.getCell(`C${currentRow}`).value =
+      `Extraction notes: ${t12.discrepancyNotes.join(' | ')}`;
+    sheet.getCell(`C${currentRow}`).font = {
+      italic: true,
+      size: 9,
+      color: { argb: 'FFB45309' },
+    };
   }
 
   return sheet;
 }
 
-function writeLineItemRow(sheet: ExcelJS.Worksheet, rowIndex: number, item: T12LineItemRow) {
+function writeLineItemRow(
+  sheet: ExcelJS.Worksheet,
+  rowIndex: number,
+  item: T12LineItemRow,
+) {
   const row = sheet.getRow(rowIndex);
   row.getCell('C').value = item.label;
 
@@ -327,7 +445,7 @@ function writeLineItemRow(sheet: ExcelJS.Worksheet, rowIndex: number, item: T12L
   totalCell.numFmt = '$#,##0';
 
   if (item.sourceSpanId) {
-    row.getCell('C').note = `Source span: ${item.sourceSpanId} — trace in Atlas REI workspace`;
+    row.getCell('C').note =
+      `Source span: ${item.sourceSpanId} — trace in Atlas REI workspace`;
   }
 }
-

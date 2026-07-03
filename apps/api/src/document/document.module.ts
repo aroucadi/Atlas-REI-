@@ -9,7 +9,17 @@ import { T12ExtractionService } from './t12-extraction.service';
 @Module({
   imports: [EvidenceModule],
   controllers: [DocumentController],
-  providers: [DocumentService, EmbeddingService, RentRollExtractionService, T12ExtractionService],
-  exports: [DocumentService, EmbeddingService, RentRollExtractionService, T12ExtractionService],
+  providers: [
+    DocumentService,
+    EmbeddingService,
+    RentRollExtractionService,
+    T12ExtractionService,
+  ],
+  exports: [
+    DocumentService,
+    EmbeddingService,
+    RentRollExtractionService,
+    T12ExtractionService,
+  ],
 })
 export class DocumentModule {}

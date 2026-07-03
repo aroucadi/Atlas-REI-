@@ -97,10 +97,16 @@ export class RentRollExtractionService {
 
     // Hardened check 1: Empty or garbage OCR text
     if (!documentText || documentText.trim().length < MIN_VIABLE_TEXT_LENGTH) {
-      await this.recordFailedExtraction(document, workspaceId, requestedByUserId, extractorVersion, {
-        reason: 'insufficient_ocr_text',
-        textLength: documentText?.trim().length ?? 0,
-      });
+      await this.recordFailedExtraction(
+        document,
+        workspaceId,
+        requestedByUserId,
+        extractorVersion,
+        {
+          reason: 'insufficient_ocr_text',
+          textLength: documentText?.trim().length ?? 0,
+        },
+      );
       throw new BadRequestException(
         `Document ${documentId} has insufficient extracted text (` +
           `${documentText?.trim().length ?? 0} characters). OCR may have failed, ` +
@@ -125,11 +131,12 @@ export class RentRollExtractionService {
     let rawResult: any;
     try {
       const prompt = `Extract rent roll details from file content:\n\n${documentText}`;
-      rawResult = await this.aiGateway.generateStructuredJson<RentRollExtraction>(
-        prompt,
-        RentRollExtractionSchema,
-        RENT_ROLL_SYSTEM_PROMPT,
-      );
+      rawResult =
+        await this.aiGateway.generateStructuredJson<RentRollExtraction>(
+          prompt,
+          RentRollExtractionSchema,
+          RENT_ROLL_SYSTEM_PROMPT,
+        );
     } catch (err) {
       await this.db.client.aiRun.update({
         where: { id: aiRun.id },
@@ -139,10 +146,16 @@ export class RentRollExtractionService {
           outputRefJson: { error: (err as Error).message } as any,
         },
       });
-      await this.recordFailedExtraction(document, workspaceId, requestedByUserId, extractorVersion, {
-        reason: 'ai_gateway_error',
-        message: (err as Error).message,
-      });
+      await this.recordFailedExtraction(
+        document,
+        workspaceId,
+        requestedByUserId,
+        extractorVersion,
+        {
+          reason: 'ai_gateway_error',
+          message: (err as Error).message,
+        },
+      );
       this.logger.error(
         `AI Gateway extraction failed for document ${documentId}: ${(err as Error).message}`,
       );
@@ -157,13 +170,22 @@ export class RentRollExtractionService {
         data: {
           status: 'failed',
           errorMessage: parsed.error.message,
-          outputRefJson: { error: 'schema_validation_failed', zodError: parsed.error.format() } as any,
+          outputRefJson: {
+            error: 'schema_validation_failed',
+            zodError: parsed.error.format(),
+          } as any,
         },
       });
-      await this.recordFailedExtraction(document, workspaceId, requestedByUserId, extractorVersion, {
-        reason: 'schema_validation_failed',
-        zodError: parsed.error.issues.slice(0, 10) as any,
-      });
+      await this.recordFailedExtraction(
+        document,
+        workspaceId,
+        requestedByUserId,
+        extractorVersion,
+        {
+          reason: 'schema_validation_failed',
+          zodError: parsed.error.issues.slice(0, 10) as any,
+        },
+      );
       this.logger.error(
         `Rent roll extraction returned schema-invalid data for document ${documentId}: ${parsed.error.message}`,
       );
@@ -176,10 +198,16 @@ export class RentRollExtractionService {
 
     // Hardened check 3: Substantively empty result (zero units)
     if ((data.units || []).length === 0) {
-      await this.recordFailedExtraction(document, workspaceId, requestedByUserId, extractorVersion, {
-        reason: 'zero_units_extracted',
-        missingItems: data.missingItems || [],
-      });
+      await this.recordFailedExtraction(
+        document,
+        workspaceId,
+        requestedByUserId,
+        extractorVersion,
+        {
+          reason: 'zero_units_extracted',
+          missingItems: data.missingItems || [],
+        },
+      );
       throw new BadRequestException(
         'Zero units extracted from document. Confirm format and try re-uploading.',
       );
@@ -216,7 +244,9 @@ export class RentRollExtractionService {
     });
 
     // 8. Audit log entry.
-    const workspace = await this.db.client.workspace.findUnique({ where: { id: workspaceId } });
+    const workspace = await this.db.client.workspace.findUnique({
+      where: { id: workspaceId },
+    });
     await this.db.client.auditLog.create({
       data: {
         organizationId: workspace?.organizationId || null,
@@ -239,13 +269,19 @@ export class RentRollExtractionService {
     extractorVersion: string,
     failureDetail: Record<string, any>,
   ) {
-    const workspace = await this.db.client.workspace.findUnique({ where: { id: workspaceId } });
+    const workspace = await this.db.client.workspace.findUnique({
+      where: { id: workspaceId },
+    });
     await this.db.client.documentExtraction.create({
       data: {
         documentId: document.id,
         extractorVersion,
         fieldsJson: { units: [], missingItems: ['ALL_FIELDS'] } as any,
-        confidenceJson: { documentAggregateConfidence: 0, perUnit: [], lowConfidenceUnits: [] } as any,
+        confidenceJson: {
+          documentAggregateConfidence: 0,
+          perUnit: [],
+          lowConfidenceUnits: [],
+        } as any,
         missingItemsJson: ['ALL_FIELDS'] as any,
         sourceSpansJson: [] as any,
         status: 'failed',
@@ -266,9 +302,7 @@ export class RentRollExtractionService {
     });
   }
 
-  private buildConfidenceMap(
-    data: RentRollExtraction,
-  ): Record<string, any> {
+  private buildConfidenceMap(data: RentRollExtraction): Record<string, any> {
     const rowScores = (data.units || []).map((unit: any) => ({
       unitNumber: unit.unitNumber?.value || 'unknown',
       confidence: unit.rowConfidence || 0,
@@ -277,7 +311,8 @@ export class RentRollExtractionService {
     const aggregate =
       rowScores.length === 0
         ? 0
-        : rowScores.reduce((sum: number, r: any) => sum + r.confidence, 0) / rowScores.length;
+        : rowScores.reduce((sum: number, r: any) => sum + r.confidence, 0) /
+          rowScores.length;
 
     const lowConfidenceUnits = rowScores
       .filter((r: any) => r.confidence < 0.7)
@@ -295,7 +330,7 @@ export class RentRollExtractionService {
     if (data.propertyName?.spanId) spans.push(data.propertyName.spanId);
     if (data.rentRollAsOfDate?.spanId) spans.push(data.rentRollAsOfDate.spanId);
     if (data.totalUnitCount?.spanId) spans.push(data.totalUnitCount.spanId);
-    
+
     for (const unit of data.units ?? []) {
       if (unit.unitNumber?.spanId) spans.push(unit.unitNumber.spanId);
       if (unit.unitType?.spanId) spans.push(unit.unitType.spanId);

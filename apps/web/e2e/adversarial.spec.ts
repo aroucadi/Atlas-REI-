@@ -1,6 +1,4 @@
 import { test, expect } from '@playwright/test';
-import { execSync } from 'child_process';
-import * as path from 'path';
 
 const HAS_REAL_LLM_KEY = !!process.env.GEMINI_API_KEY;
 

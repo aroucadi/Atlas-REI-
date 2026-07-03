@@ -50,7 +50,10 @@ Rules:
 `.trim();
 
 export class ExtractionQualityError extends Error {
-  constructor(public readonly reason: string, public readonly partialResult?: unknown) {
+  constructor(
+    public readonly reason: string,
+    public readonly partialResult?: unknown,
+  ) {
     super(`T-12 extraction produced insufficient results: ${reason}`);
     this.name = 'ExtractionQualityError';
   }
@@ -81,7 +84,9 @@ export class T12ExtractionService {
       where: { id: documentId, workspaceId },
     });
     if (!document) {
-      throw new NotFoundException(`Document ${documentId} not found in workspace ${workspaceId}`);
+      throw new NotFoundException(
+        `Document ${documentId} not found in workspace ${workspaceId}`,
+      );
     }
     if (document.documentType !== 'operating_statement') {
       throw new BadRequestException(
@@ -99,10 +104,16 @@ export class T12ExtractionService {
 
     const documentText = await this.documentService.getDocumentText(document);
     if (!documentText || documentText.trim().length < MIN_VIABLE_TEXT_LENGTH) {
-      await this.recordFailedExtraction(document, workspaceId, requestedByUserId, extractorVersion, {
-        reason: 'insufficient_ocr_text',
-        textLength: documentText?.trim().length ?? 0,
-      });
+      await this.recordFailedExtraction(
+        document,
+        workspaceId,
+        requestedByUserId,
+        extractorVersion,
+        {
+          reason: 'insufficient_ocr_text',
+          textLength: documentText?.trim().length ?? 0,
+        },
+      );
       throw new BadRequestException(
         `Document ${documentId} has insufficient extracted text. OCR may have failed or this may require re-scanning.`,
       );
@@ -123,21 +134,33 @@ export class T12ExtractionService {
     let rawResult: any;
     try {
       const prompt = `Extract Trailing-12 (T-12) operating statement details from file content:\n\n${documentText}`;
-      rawResult = await this.aiGateway.generateStructuredJson<T12OperatingStatement>(
-        prompt,
-        T12OperatingStatementSchema,
-        T12_SYSTEM_PROMPT,
-      );
+      rawResult =
+        await this.aiGateway.generateStructuredJson<T12OperatingStatement>(
+          prompt,
+          T12OperatingStatementSchema,
+          T12_SYSTEM_PROMPT,
+        );
     } catch (err) {
       await this.db.client.aiRun.update({
         where: { id: aiRun.id },
-        data: { status: 'failed', outputRefJson: { error: (err as Error).message } as any },
+        data: {
+          status: 'failed',
+          outputRefJson: { error: (err as Error).message } as any,
+        },
       });
-      await this.recordFailedExtraction(document, workspaceId, requestedByUserId, extractorVersion, {
-        reason: 'ai_gateway_error',
-        message: (err as Error).message,
-      });
-      this.logger.error(`AI Gateway call failed for T-12 document ${documentId}: ${(err as Error).message}`);
+      await this.recordFailedExtraction(
+        document,
+        workspaceId,
+        requestedByUserId,
+        extractorVersion,
+        {
+          reason: 'ai_gateway_error',
+          message: (err as Error).message,
+        },
+      );
+      this.logger.error(
+        `AI Gateway call failed for T-12 document ${documentId}: ${(err as Error).message}`,
+      );
       throw new InternalServerErrorException('T-12 extraction failed');
     }
 
@@ -145,14 +168,30 @@ export class T12ExtractionService {
     if (!parsed.success) {
       await this.db.client.aiRun.update({
         where: { id: aiRun.id },
-        data: { status: 'failed', outputRefJson: { error: 'schema_validation_failed', zodError: parsed.error.format() } as any },
+        data: {
+          status: 'failed',
+          outputRefJson: {
+            error: 'schema_validation_failed',
+            zodError: parsed.error.format(),
+          } as any,
+        },
       });
-      await this.recordFailedExtraction(document, workspaceId, requestedByUserId, extractorVersion, {
-        reason: 'schema_validation_failed',
-        zodError: parsed.error.issues.slice(0, 10),
-      });
-      this.logger.error(`T-12 extraction returned schema-invalid data for document ${documentId}: ${parsed.error.message}`);
-      throw new InternalServerErrorException('Extraction returned an unexpected format. This has been logged for review.');
+      await this.recordFailedExtraction(
+        document,
+        workspaceId,
+        requestedByUserId,
+        extractorVersion,
+        {
+          reason: 'schema_validation_failed',
+          zodError: parsed.error.issues.slice(0, 10),
+        },
+      );
+      this.logger.error(
+        `T-12 extraction returned schema-invalid data for document ${documentId}: ${parsed.error.message}`,
+      );
+      throw new InternalServerErrorException(
+        'Extraction returned an unexpected format. This has been logged for review.',
+      );
     }
 
     const data = parsed.data;
@@ -164,7 +203,10 @@ export class T12ExtractionService {
         modelProvider: rawResult.modelProvider,
         modelName: rawResult.modelName,
         costEstimate: rawResult.costEstimate,
-        outputRefJson: { hasReportedTotals: data.reportedTotals.netOperatingIncome.value !== null } as any,
+        outputRefJson: {
+          hasReportedTotals:
+            data.reportedTotals.netOperatingIncome.value !== null,
+        } as any,
       },
     });
 
@@ -178,11 +220,20 @@ export class T12ExtractionService {
       data.income.grossPotentialRent.monthlyValues.every((v) => v === null) &&
       data.expenses.propertyTaxes.monthlyValues.every((v) => v === null)
     ) {
-      await this.recordFailedExtraction(document, workspaceId, requestedByUserId, extractorVersion, {
-        reason: 'zero_data_extracted',
-        missingItems: data.missingItems,
-      });
-      throw new ExtractionQualityError('no usable income/expense data extracted', data);
+      await this.recordFailedExtraction(
+        document,
+        workspaceId,
+        requestedByUserId,
+        extractorVersion,
+        {
+          reason: 'zero_data_extracted',
+          missingItems: data.missingItems,
+        },
+      );
+      throw new ExtractionQualityError(
+        'no usable income/expense data extracted',
+        data,
+      );
     }
 
     const confidenceJson = this.buildConfidenceMap(data, reconciliation);
@@ -194,12 +245,14 @@ export class T12ExtractionService {
         fieldsJson: data as any,
         confidenceJson: confidenceJson as any,
         missingItemsJson: data.missingItems as any,
-        sourceSpansJson: rawResult.sourceSpans as any,
+        sourceSpansJson: rawResult.sourceSpans,
         status: 'completed',
       },
     });
 
-    const workspace = await this.db.client.workspace.findUnique({ where: { id: workspaceId } });
+    const workspace = await this.db.client.workspace.findUnique({
+      where: { id: workspaceId },
+    });
 
     await this.db.client.auditLog.create({
       data: {
@@ -226,16 +279,21 @@ export class T12ExtractionService {
     const reportedNoi = data.reportedTotals.netOperatingIncome.value;
 
     if (reportedNoi === null) {
-      return { status: 'not_reported' as const, computed, reportedNoi: null, deltaPct: null };
+      return {
+        status: 'not_reported' as const,
+        computed,
+        reportedNoi: null,
+        deltaPct: null,
+      };
     }
 
     const delta = Math.abs(reportedNoi - computed.netOperatingIncome);
-    const deltaPct = reportedNoi !== 0 ? delta / Math.abs(reportedNoi) : delta > 0 ? 1 : 0;
+    const deltaPct =
+      reportedNoi !== 0 ? delta / Math.abs(reportedNoi) : delta > 0 ? 1 : 0;
 
     return {
-      status: (deltaPct > RECONCILIATION_TOLERANCE_PCT ? 'discrepancy' : 'reconciled') as
-        | 'discrepancy'
-        | 'reconciled',
+      status:
+        deltaPct > RECONCILIATION_TOLERANCE_PCT ? 'discrepancy' : 'reconciled',
       computed,
       reportedNoi,
       deltaPct,

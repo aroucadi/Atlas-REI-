@@ -260,4 +260,3 @@ export class DocumentService {
     return extraction; // if null, controller will catch it and throw NotFoundException
   }
 }
-

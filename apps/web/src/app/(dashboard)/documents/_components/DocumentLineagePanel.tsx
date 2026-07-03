@@ -96,9 +96,9 @@ export function DocumentLineagePanel({
 
           {extraction.fieldsJson?.units ? (
             /* --- RENT ROLL UNIT LIST --- */
-            (extraction.fieldsJson.units as RentRollUnit[]).map((unit) => (
+            (extraction.fieldsJson.units as RentRollUnit[]).map((unit, index) => (
               <div
-                key={unit.unitNumber?.value ?? Math.random()}
+                key={unit.unitNumber?.value || `unit-${index}`}
                 className="mb-3 rounded border border-slate-100 p-2"
               >
                 <div className="mb-1 flex items-center justify-between">

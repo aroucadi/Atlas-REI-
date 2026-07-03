@@ -82,7 +82,7 @@ describe('WORM audit trail', () => {
       expect(second.entryHash).not.toBe(first.entryHash);
     });
 
-    it('chains a brand new row to the true latest row in the table, not just within this test\'s scope', async () => {
+    it("chains a brand new row to the true latest row in the table, not just within this test's scope", async () => {
       const latestBeforeInsert = await db.client.$queryRaw<
         Array<{ entry_hash: string }>
       >(Prisma.sql`
@@ -125,28 +125,34 @@ describe('WORM audit trail', () => {
     });
 
     it('rejects raw SQL UPDATE with a database exception or silently ignores it', async () => {
-      const check = await db.client.auditLog.findUnique({ where: { id: targetRowId } });
+      const check = await db.client.auditLog.findUnique({
+        where: { id: targetRowId },
+      });
       console.log('DEBUG: targetRowId:', targetRowId, 'exists:', !!check);
       const promise = db.client.$executeRawUnsafe(
-        `UPDATE audit_logs SET action = 'tampered' WHERE id = '${targetRowId}'::uuid`
+        `UPDATE audit_logs SET action = 'tampered' WHERE id = '${targetRowId}'::uuid`,
       );
       try {
         const affectedRows = await promise;
         expect(affectedRows).toBe(0);
       } catch (err: any) {
-        expect(err.message).toMatch(/WORM|insufficient_privilege|not permitted|cannot perform/i);
+        expect(err.message).toMatch(
+          /WORM|insufficient_privilege|not permitted|cannot perform/i,
+        );
       }
     });
 
     it('rejects raw SQL DELETE with a database exception or silently ignores it', async () => {
       const promise = db.client.$executeRawUnsafe(
-        `DELETE FROM audit_logs WHERE id = '${targetRowId}'::uuid`
+        `DELETE FROM audit_logs WHERE id = '${targetRowId}'::uuid`,
       );
       try {
         const affectedRows = await promise;
         expect(affectedRows).toBe(0);
       } catch (err: any) {
-        expect(err.message).toMatch(/WORM|insufficient_privilege|not permitted|cannot perform/i);
+        expect(err.message).toMatch(
+          /WORM|insufficient_privilege|not permitted|cannot perform/i,
+        );
       }
     });
 
@@ -167,7 +173,7 @@ describe('WORM audit trail', () => {
 
     it('AuditLogService.readOnlyDelegate throws BEFORE reaching Prisma at all', async () => {
       expect(() =>
-        (auditLogService.readOnlyDelegate as any).update({
+        auditLogService.readOnlyDelegate.update({
           where: { id: targetRowId },
           data: { action: 'tampered' },
         }),
@@ -214,7 +220,9 @@ describe('WORM audit trail', () => {
     it('detects a broken chain if a row is mutated by direct DB access outside the trigger path', async () => {
       const canRunSuperuserTest = !!process.env.WORM_TEST_SUPERUSER_URL;
       if (!canRunSuperuserTest) {
-        console.warn('Skipping DISABLE TRIGGER tampering test: WORM_TEST_SUPERUSER_URL not defined');
+        console.warn(
+          'Skipping DISABLE TRIGGER tampering test: WORM_TEST_SUPERUSER_URL not defined',
+        );
         return;
       }
 
@@ -231,9 +239,11 @@ describe('WORM audit trail', () => {
       // Connect using the superuser connection string to disable triggers
       const superuserDb = new DatabaseService();
       // Temporarily override the client URL config
-      (superuserDb.client as any)._customUrl = process.env.WORM_TEST_SUPERUSER_URL;
+      (superuserDb.client as any)._customUrl =
+        process.env.WORM_TEST_SUPERUSER_URL;
 
-      await superuserDb.client.$executeRaw`ALTER TABLE audit_logs DISABLE TRIGGER trg_audit_logs_block_update`;
+      await superuserDb.client
+        .$executeRaw`ALTER TABLE audit_logs DISABLE TRIGGER trg_audit_logs_block_update`;
       try {
         await superuserDb.client.$executeRaw`
           UPDATE audit_logs
@@ -241,13 +251,16 @@ describe('WORM audit trail', () => {
           WHERE id = ${row.id}::uuid
         `;
       } finally {
-        await superuserDb.client.$executeRaw`ALTER TABLE audit_logs ENABLE TRIGGER trg_audit_logs_block_update`;
+        await superuserDb.client
+          .$executeRaw`ALTER TABLE audit_logs ENABLE TRIGGER trg_audit_logs_block_update`;
         await superuserDb.client.$disconnect();
       }
 
       const result = await auditLogService.verifyChainIntegrity();
       expect(result.isValid).toBe(false);
-      expect(result.detail).toMatch(/entry_hash does not match|previous_hash mismatch/);
+      expect(result.detail).toMatch(
+        /entry_hash does not match|previous_hash mismatch/,
+      );
     });
   });
 });

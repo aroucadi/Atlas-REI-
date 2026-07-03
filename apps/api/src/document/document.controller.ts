@@ -80,7 +80,10 @@ export class DocumentController {
     @Param('id') documentId: string,
   ) {
     try {
-      return await this.documentService.getPresignedUrl(workspaceId, documentId);
+      return await this.documentService.getPresignedUrl(
+        workspaceId,
+        documentId,
+      );
     } catch (err: any) {
       throw new NotFoundException(err.message);
     }
@@ -93,9 +96,15 @@ export class DocumentController {
     @Res() res: any,
   ) {
     try {
-      const file = await this.documentService.getDocumentFile(workspaceId, documentId);
+      const file = await this.documentService.getDocumentFile(
+        workspaceId,
+        documentId,
+      );
       res.setHeader('Content-Type', file.mimeType);
-      res.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${file.fileName}"`,
+      );
       return res.send(file.buffer);
     } catch (err: any) {
       throw new NotFoundException(err.message);
@@ -109,14 +118,18 @@ export class DocumentController {
   ) {
     let extraction;
     try {
-      extraction = await this.documentService.getLatestExtraction(workspaceId, documentId);
+      extraction = await this.documentService.getLatestExtraction(
+        workspaceId,
+        documentId,
+      );
     } catch (err: any) {
       throw new NotFoundException(err.message);
     }
     if (!extraction) {
-      throw new NotFoundException(`No extraction found for document ${documentId}`);
+      throw new NotFoundException(
+        `No extraction found for document ${documentId}`,
+      );
     }
     return extraction;
   }
 }
-

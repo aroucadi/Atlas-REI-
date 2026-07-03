@@ -53,14 +53,17 @@ export class CommitteeMemoService {
   private readonly logger = new Logger(CommitteeMemoService.name);
   private readonly aiGateway: AiGateway;
 
-  constructor(
-    private readonly db: DatabaseService,
-  ) {
+  constructor(private readonly db: DatabaseService) {
     this.aiGateway = new AiGateway();
   }
 
   async getOrGenerate(options: GenerateMemoOptions) {
-    const { workspaceId, propertyId, requestedByUserId, forceRegenerate = false } = options;
+    const {
+      workspaceId,
+      propertyId,
+      requestedByUserId,
+      forceRegenerate = false,
+    } = options;
 
     if (!forceRegenerate) {
       const existing = await this.db.client.committeeMemo.findFirst({
@@ -85,18 +88,19 @@ export class CommitteeMemoService {
       throw new NotFoundException(`Property ${propertyId} not found`);
     }
 
-    const rentRollExtraction = await this.db.client.documentExtraction.findFirst({
-      where: {
-        status: 'completed',
-        document: {
-          workspaceId,
-          entityType: 'property',
-          entityId: propertyId,
-          documentType: 'rent_roll',
+    const rentRollExtraction =
+      await this.db.client.documentExtraction.findFirst({
+        where: {
+          status: 'completed',
+          document: {
+            workspaceId,
+            entityType: 'property',
+            entityId: propertyId,
+            documentType: 'rent_roll',
+          },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+      });
 
     const t12Extraction = await this.db.client.documentExtraction.findFirst({
       where: {
@@ -170,7 +174,9 @@ export class CommitteeMemoService {
       },
     });
 
-    const workspace = await this.db.client.workspace.findUnique({ where: { id: workspaceId } });
+    const workspace = await this.db.client.workspace.findUnique({
+      where: { id: workspaceId },
+    });
 
     await this.db.client.auditLog.create({
       data: {
@@ -237,16 +243,21 @@ export class CommitteeMemoService {
 
   private buildInputSummary(
     property: any,
-    rentRollExtraction: any | null,
-    t12Extraction: any | null,
+    rentRollExtraction: any,
+    t12Extraction: any,
     mandates: any[],
   ) {
     const rentRollSummary = rentRollExtraction
-      ? this.summarizeRentRoll(rentRollExtraction.fieldsJson as RentRollExtraction)
+      ? this.summarizeRentRoll(
+          rentRollExtraction.fieldsJson as RentRollExtraction,
+        )
       : { status: 'not_available' as const };
 
     const t12Summary = t12Extraction
-      ? this.summarizeT12(t12Extraction.fieldsJson as T12OperatingStatement, t12Extraction.confidenceJson)
+      ? this.summarizeT12(
+          t12Extraction.fieldsJson as T12OperatingStatement,
+          t12Extraction.confidenceJson,
+        )
       : { status: 'not_available' as const };
 
     return {
@@ -272,20 +283,31 @@ export class CommitteeMemoService {
   }
 
   private summarizeRentRoll(data: RentRollExtraction) {
-    const occupied = data.units.filter((u: any) => u.occupancyStatus === 'occupied');
-    const vacant = data.units.filter((u: any) => u.occupancyStatus === 'vacant');
+    const occupied = data.units.filter(
+      (u: any) => u.occupancyStatus === 'occupied',
+    );
+    const vacant = data.units.filter(
+      (u: any) => u.occupancyStatus === 'vacant',
+    );
     const avgRent =
       occupied.length > 0
-        ? occupied.reduce((sum: number, u: any) => sum + (u.monthlyBaseRent.value ?? 0), 0) / occupied.length
+        ? occupied.reduce(
+            (sum: number, u: any) => sum + (u.monthlyBaseRent.value ?? 0),
+            0,
+          ) / occupied.length
         : null;
-    const totalPastDue = data.units.reduce((sum: number, u: any) => sum + (u.pastDueBalance.value ?? 0), 0);
+    const totalPastDue = data.units.reduce(
+      (sum: number, u: any) => sum + (u.pastDueBalance.value ?? 0),
+      0,
+    );
 
     return {
       status: 'available' as const,
       totalUnits: data.units.length,
       occupiedUnits: occupied.length,
       vacantUnits: vacant.length,
-      occupancyRate: data.units.length > 0 ? occupied.length / data.units.length : null,
+      occupancyRate:
+        data.units.length > 0 ? occupied.length / data.units.length : null,
       averageMonthlyRent: avgRent,
       totalPastDueBalance: totalPastDue,
     };
@@ -295,7 +317,9 @@ export class CommitteeMemoService {
     const computed = computeBottomUpTotals(data);
     return {
       status: 'available' as const,
-      grossPotentialRentAnnual: sumMonthlySafe(data.income.grossPotentialRent.monthlyValues),
+      grossPotentialRentAnnual: sumMonthlySafe(
+        data.income.grossPotentialRent.monthlyValues,
+      ),
       computedTotalGrossRevenue: computed.grossRevenue,
       computedTotalOperatingExpenses: computed.operatingExpenses,
       computedNOI: computed.netOperatingIncome,
@@ -309,15 +333,27 @@ export class CommitteeMemoService {
     memo: CommitteeMemo,
     mandates: any[],
     inputSummary: ReturnType<CommitteeMemoService['buildInputSummary']>,
-    underwriteRun: any | null,
-  ): Array<{ mandateLabel: string; modelStatus: string; recomputedStatus: string }> {
-    const mismatches: Array<{ mandateLabel: string; modelStatus: string; recomputedStatus: string }> = [];
+    underwriteRun: any,
+  ): Array<{
+    mandateLabel: string;
+    modelStatus: string;
+    recomputedStatus: string;
+  }> {
+    const mismatches: Array<{
+      mandateLabel: string;
+      modelStatus: string;
+      recomputedStatus: string;
+    }> = [];
 
     for (const check of memo.mandateComplianceChecks) {
       const mandate = mandates.find((m) => m.label === check.mandateLabel);
       if (!mandate) continue;
 
-      const recomputed = this.recomputeSingleMandate(mandate, inputSummary, underwriteRun);
+      const recomputed = this.recomputeSingleMandate(
+        mandate,
+        inputSummary,
+        underwriteRun,
+      );
       if (recomputed !== null && recomputed !== check.status) {
         mismatches.push({
           mandateLabel: check.mandateLabel,
@@ -333,7 +369,7 @@ export class CommitteeMemoService {
   private recomputeSingleMandate(
     mandate: any,
     inputSummary: ReturnType<CommitteeMemoService['buildInputSummary']>,
-    underwriteRun: any | null,
+    underwriteRun: any,
   ): 'pass' | 'fail' | null {
     if (mandate.label === 'Min Gross Yield') {
       const grossPotentialRentAnnual =
@@ -350,8 +386,12 @@ export class CommitteeMemoService {
     }
 
     if (mandate.label === 'Max LTV' && underwriteRun) {
-      const assumptions = (underwriteRun.assumptionsJson as any) || {};
-      const ltv = assumptions.ltv ?? (assumptions.financing ? (1 - (assumptions.financing.downPaymentPct || 1.0)) : null);
+      const assumptions = underwriteRun.assumptionsJson || {};
+      const ltv =
+        assumptions.ltv ??
+        (assumptions.financing
+          ? 1 - (assumptions.financing.downPaymentPct || 1.0)
+          : null);
       if (ltv !== null && typeof ltv === 'number') {
         return ltv <= mandate.thresholdValue ? 'pass' : 'fail';
       }
@@ -359,9 +399,12 @@ export class CommitteeMemoService {
     }
 
     if (mandate.label === 'Capital Sufficiency' && underwriteRun) {
-      const metricsObj = (underwriteRun.metricsJson as any) || {};
+      const metricsObj = underwriteRun.metricsJson || {};
       const totalCapitalRequired = metricsObj.totalCapitalRequired || null;
-      if (totalCapitalRequired !== null && typeof totalCapitalRequired === 'number') {
+      if (
+        totalCapitalRequired !== null &&
+        typeof totalCapitalRequired === 'number'
+      ) {
         return mandate.thresholdValue >= totalCapitalRequired ? 'pass' : 'fail';
       }
       return null;
@@ -397,7 +440,9 @@ export class CommitteeMemoService {
       },
     });
 
-    const workspace = await this.db.client.workspace.findUnique({ where: { id: workspaceId } });
+    const workspace = await this.db.client.workspace.findUnique({
+      where: { id: workspaceId },
+    });
 
     await this.db.client.auditLog.create({
       data: {
@@ -408,7 +453,8 @@ export class CommitteeMemoService {
         entityId: updated.id,
         action: 'signed_off',
         afterJson: {
-          overallRecommendation: (updated.contentJson as any).overallRecommendation,
+          overallRecommendation: (updated.contentJson as any)
+            .overallRecommendation,
           status: 'signed_off',
         } as any,
       },
